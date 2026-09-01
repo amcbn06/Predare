@@ -1,0 +1,434 @@
+\documentclass{beamer}
+\usepackage{../../../resources/themes/algolymp-light}
+\usepackage{booktabs}
+\usepackage{amssymb}
+
+\title{Introducere în Programare Dinamică}
+\subtitle{Șirul lui Fibonacci $\cdot$ Drumuri în matrice \\ Subșir crescător de lungime maximă}
+\author{Andrei Mihai Ciobanu}
+\institute{Algolymp Summer School}
+\date{}
+\titlegraphic{\includegraphics[width=3cm]{../../../resources/algolymp-logo.png}}
+\setbeamertemplate{frame footer}{Algolymp Summer School}
+
+% ============================================================
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Cuprins}
+  \tableofcontents[hideallsubsections]
+\end{frame}
+
+% ============================================================
+\section{Ce este Programarea Dinamică?}
+
+\begin{frame}{Motivație}
+  \begin{block}{Problemă}
+    Se cere să se calculeze cel de-al $n$-lea număr Fibonacci,
+    unde $F_1 = 1$, $F_2 = 1$, $F_n = F_{n-1} + F_{n-2}$.
+  \end{block}
+  \smallskip
+  \textbf{Soluție recursivă naivă:}
+  \begin{itemize}
+    \item $F(5)$ apelează $F(4)$ și $F(3)$
+    \item $F(4)$ apelează $F(3)$ și $F(2)$
+    \item $F(3)$ se calculează de \alert{mai multe ori}
+  \end{itemize}
+  \smallskip
+  Complexitate: $O(2^n)$ \textemdash{} complet ineficient pentru $n$ mare.
+  \begin{alertblock}{Observație cheie}
+    Aceleași subprobleme sunt rezolvate \textbf{în mod repetat}.
+    Dacă am memora rezultatele, am evita recalcularea.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Definiție}
+  \begin{block}{Programare Dinamică (DP)}
+    Paradigmă care \textbf{descompune o problemă complexă} în subprobleme
+    mai simple, rezolvate recursiv, reținând soluțiile pentru a le reutiliza.
+  \end{block}
+  \smallskip
+  \textbf{3 categorii de probleme DP:}
+  \begin{enumerate}\itemsep4pt
+    \item \textbf{Numărare} \textemdash{} câte instanțe respectă o proprietate \\
+          {\small\textit{Exemplu: câte drumuri există din $(1,1)$ în $(N,M)$}}
+    \item \textbf{Optimizare} \textemdash{} maximizare sau minimizare \\
+          {\small\textit{Exemplu: cel mai lung subșir crescător}}
+    \item \textbf{Decizie} \textemdash{} dacă un rezultat se poate obține \\
+          {\small\textit{Exemplu: câștigătorul unui joc cu mișcări optime}}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Proprietăți DP (1): Substructura optimă}
+  \begin{block}{Substructura optimă}
+    Soluția optimă a problemei \textbf{depinde de soluțiile optime}
+    ale subproblemelor în care aceasta se descompune.
+  \end{block}
+  \smallskip
+  \textbf{Exemplu \textemdash{} SCLM:} fie $dp[i]$ = lungimea celui mai lung
+  subșir crescător care se termină la poziția $i$. Atunci:
+  \[
+    dp[i] = 1 + \max_{\substack{j < i \\ a[j] < a[i]}} dp[j]
+  \]
+  \begin{alertblock}{Atenție}
+    Substructura optimă nu implică neapărat DP \textemdash{} metodele
+    \textbf{Greedy} și \textbf{Divide et Impera} pot fi aplicabile în unele cazuri.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Proprietăți DP (2): Subprobleme suprapuse}
+  \begin{block}{Subprobleme suprapuse}
+    Dacă aceleași subprobleme apar de \textbf{mai multe ori},
+    o abordare naivă le recalculează în mod repetat.
+    DP le rezolvă \textbf{o singură dată} și reține rezultatul.
+  \end{block}
+  \smallskip
+  \textbf{Exemplu \textemdash{} arborele de apeluri pentru $F(5)$:}
+  \begin{itemize}\itemsep2pt
+    \item $F(5)$ apelează $F(4)$ și \alert{$F(3)$}
+    \item $F(4)$ apelează \alert{$F(3)$} și $F(2)$
+    \item \alert{$F(3)$} este calculat de \alert{2 ori}; $F(2)$ de 3 ori; $F(1)$ de 5 ori \ldots
+  \end{itemize}
+  \smallskip
+  \textbf{Soluție DP:} memorăm $F(i)$ după prima calculare.
+  Fiecare apel unic se face \textbf{o singură dată}
+  $\Rightarrow$ $O(2^n) \rightarrow O(n)$.
+\end{frame}
+
+\begin{frame}{Pașii de rezolvare}
+  \begin{enumerate}
+    \footnotesize\itemsep2pt
+    \item \textbf{Identificăm} că problema poate fi rezolvată cu DP
+    \item \textbf{Definim stările} \textemdash{} cum descriem o subproblemă \\
+          \textit{ex: $dp[i]$ = al $i$-lea Fibonacci, $dp[l][r]$ = soluția pe intervalul $[l,r]$}
+    \item \textbf{Identificăm cazurile de bază} \textemdash{} stările simple cu răspuns direct
+    \item \textbf{Găsim relația de recurență} (tranziția)
+    \item \textbf{Alegem structura de date} \textemdash{} vector, matrice, hashmap
+    \item \textbf{Stabilim ordinea de calcul} \textemdash{} \textbf{bottom-up} (iterativ,
+          de la stări mici) sau \textbf{top-down} (recursiv cu memoizare)
+    \item Dacă am ajuns până aici fără probleme \textemdash{} \textit{Voilà!}, problema e rezolvată
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Memoizare vs. Tabelarizare}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \begin{block}{Top-down (memoizare)}
+      \begin{itemize}
+        \footnotesize\itemsep0pt
+        \item Implementare \textbf{recursivă}
+        \item[+] Derivă direct din recurență
+        \item[+] Calculează doar stările necesare
+        \item[$-$] Risc de stack overflow la $n$ mare
+      \end{itemize}
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{block}{Bottom-up (tabelarizare)}
+      \begin{itemize}
+        \footnotesize\itemsep0pt
+        \item Implementare \textbf{iterativă}
+        \item[+] Fără recursivitate, mai rapid
+        \item[+] Control complet al ordinii
+        \item[$-$] Necesită ordine de calcul explicită
+      \end{itemize}
+    \end{block}
+  \end{columns}
+  \smallskip
+  \textbf{Recomandare:} bottom-up e preferat în competiții \textemdash{}
+  mai rapid și fără risc de stack overflow.
+\end{frame}
+
+% ============================================================
+\section{Șirul lui Fibonacci}
+
+\begin{frame}{Fibonacci \textemdash{} Abordare DP}
+  Aplicăm pașii de rezolvare la Fibonacci:
+  \begin{enumerate}\itemsep0pt
+    \item \textbf{Stare:} $dp[i]$ = valoarea $F_i$
+    \item \textbf{Bază:} $dp[1] = dp[2] = 1$
+    \item \textbf{Recurență:} $dp[i] = dp[i-1] + dp[i-2]$
+    \item \textbf{Structură:} vector de $n$ elemente
+    \item \textbf{Ordine:} de la $i = 3$ la $n$ (bottom-up)
+  \end{enumerate}
+  \smallskip
+  \begin{block}{Primele valori}
+    \begin{center}
+    \begin{tabular}{ccccccc}
+      $i$ & 1 & 2 & 3 & 4 & 5 & 6 \\
+      $dp[i]$ & 1 & 1 & 2 & 3 & 5 & 8 \\
+    \end{tabular}
+    \end{center}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Fibonacci \textemdash{} Top-down (memoizare)}
+  \begin{lstlisting}
+const int nmax = 100;
+int memo[nmax + 1];
+
+int fib(int n) {
+    if (n <= 2) {
+        return 1;
+    }
+    if (memo[n] != 0) {
+        return memo[n];
+    }
+    memo[n] = fib(n - 1) + fib(n - 2);
+    return memo[n];
+}
+  \end{lstlisting}
+  Complexitate: $O(n)$ timp, $O(n)$ spațiu.
+\end{frame}
+
+\begin{frame}[fragile]{Fibonacci \textemdash{} Bottom-up (tabelarizare)}
+  \begin{lstlisting}
+const int nmax = 100;
+int dp[nmax + 1];
+
+void calcFib(int n) {
+    dp[1] = 1;
+    dp[2] = 1;
+    for (int i = 3; i <= n; i++) {
+        dp[i] = dp[i - 1] + dp[i - 2];
+    }
+}
+  \end{lstlisting}
+  \begin{block}{Tipar DP}
+    \textbf{Stare}: $dp[i]$ = al $i$-lea număr Fibonacci \\
+    \textbf{Tranziție}: $dp[i] = dp[i-1] + dp[i-2]$ \\
+    \textbf{Bază}: $dp[1] = dp[2] = 1$
+  \end{block}
+\end{frame}
+
+% ============================================================
+\section{Drumuri în matrice}
+
+\begin{frame}{Numărarea drumurilor pe grid}
+  \begin{block}{Problemă}
+    Se dă o matrice $n \times m$ cu valori $0$ (liber) și $1$ (blocat).
+    Câte drumuri există de la $(1,1)$ la $(n,m)$,
+    mergând doar \textbf{dreapta} sau \textbf{jos}?
+  \end{block}
+  \smallskip
+  \textbf{Observație:} pentru a ajunge în $(i, j)$, trebuie să fi venit din
+  $(i-1, j)$ sau $(i, j-1)$.
+  \begin{block}{Recurență}
+    \[
+      dp[i][j] = \begin{cases}
+        0 & \text{dacă } a[i][j] = 1 \text{ (blocat)} \\
+        dp[i-1][j] + dp[i][j-1] & \text{altfel}
+      \end{cases}
+    \]
+    Bază: $dp[1][1] = 1$ (dacă celula $(1,1)$ e liberă).
+  \end{block}
+\end{frame}
+
+\begin{frame}{Drumuri pe grid \textemdash{} Exemplu pas cu pas}
+  Matrice $3 \times 3$, toate celulele libere:
+  \smallskip
+  \begin{columns}[T]
+    \column{0.42\textwidth}
+    \textbf{Grila} ($0$ = liber):
+    \begin{center}
+    \begin{tabular}{|c|c|c|}
+      \hline
+      0 & 0 & 0 \\ \hline
+      0 & 0 & 0 \\ \hline
+      0 & 0 & 0 \\ \hline
+    \end{tabular}
+    \end{center}
+    \column{0.52\textwidth}
+    \textbf{Valorile $dp[i][j]$}:
+    \begin{center}
+    \begin{tabular}{|c|c|c|}
+      \hline
+      1 & 1 & 1 \\ \hline
+      1 & 2 & 3 \\ \hline
+      1 & 3 & \alert{6} \\ \hline
+    \end{tabular}
+    \end{center}
+  \end{columns}
+  \smallskip
+  Există \alert{6} drumuri din $(1,1)$ în $(3,3)$.
+  \smallskip
+  \textbf{Ordine de calcul:} rând cu rând, stânga la dreapta \textemdash{}
+  garantează că $dp[i-1][j]$ și $dp[i][j-1]$ sunt deja calculate.
+\end{frame}
+
+\begin{frame}[fragile]{DP pe matrice \textemdash{} Implementare}
+  \begin{lstlisting}
+const int nmax = 1000;
+long long dp[nmax + 1][nmax + 1] = {};
+// a[][], n, m citite anterior
+dp[1][1] = 1;
+
+for (int i = 1; i <= n; i++) {
+    for (int j = 1; j <= m; j++) {
+        if (a[i][j] == 1 || (i == 1 && j == 1)) {
+            continue;
+        }
+        dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+    }
+}
+// Raspuns: dp[n][m]
+  \end{lstlisting}
+  Complexitate: $O(n \cdot m)$ timp și spațiu.
+\end{frame}
+
+% ============================================================
+\section{Subșir crescător de lungime maximă}
+
+\begin{frame}{SCLM \textemdash{} Definiție}
+  \begin{block}{Problemă}
+    Dat un șir $a_1, a_2, \ldots, a_n$, găsește lungimea celui mai lung
+    \textbf{subșir strict crescător}.
+  \end{block}
+  \smallskip
+  \textbf{Exemplu:} $a = [3, 1, 4, 1, 5, 9, 2, 6]$
+  \begin{itemize}
+    \item Un subșir crescător: $1, 4, 5, 9$ \textemdash{} lungime $4$
+    \item Un alt subșir: $1, 2, 6$ \textemdash{} lungime $3$
+    \item Răspuns: $\mathbf{4}$
+  \end{itemize}
+  \smallskip
+  \begin{alertblock}{Atenție la termeni}
+    \textbf{Subșir} (subsequence) $\neq$ \textbf{subșir contiguu} (subarray).
+    Elementele nu trebuie să fie consecutive \textemdash{} doar în ordine.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{SCLM \textemdash{} Cum gândim soluția}
+  \textbf{Stare:} $dp[i]$ = lungimea celui mai lung subșir crescător
+  care se \textbf{termină la poziția} $i$.
+  \smallskip
+  \textbf{De ce fixăm ultimul element?} Altfel nu știm cu ce elemente
+  putem extinde subșirul în continuare.
+  \smallskip
+  \textbf{Cum calculăm $dp[i]$?} Avem de ales:
+  \begin{enumerate}\itemsep2pt
+    \item Subșirul are doar elementul $i$: $dp[i] = 1$
+    \item Extindem un subșir anterior: căutăm $j < i$ cu $a[j] < a[i]$
+          și luăm $dp[i] = dp[j] + 1$
+  \end{enumerate}
+  \smallskip
+  Vrem maximul, deci:
+  \[
+    dp[i] = 1 + \max_{\substack{j < i \\ a[j] < a[i]}} dp[j]
+  \]
+  \textbf{Răspuns:} $\max_{i=1}^{n} dp[i]$
+\end{frame}
+
+\begin{frame}{SCLM \textemdash{} Exemplu pas cu pas}
+  $a = [3, 1, 4, 1, 5, 9, 2, 6]$
+  \smallskip
+  \begin{center}
+  \begin{tabular}{ccccccccc}
+    \toprule
+    $i$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 \\
+    $a[i]$ & 3 & 1 & 4 & 1 & 5 & 9 & 2 & 6 \\
+    $dp[i]$ & 1 & 1 & 2 & 1 & 3 & 4 & 2 & 4 \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \smallskip
+  \textbf{Detaliu pentru $i=5$ ($a[5]=5$):}
+  \begin{itemize}\itemsep0pt
+    \item $j=1$: $a[1]=3 < 5$ $\Rightarrow$ candidat $dp[1]+1 = 2$
+    \item $j=3$: $a[3]=4 < 5$ $\Rightarrow$ candidat $dp[3]+1 = 3$
+    \item $dp[5] = 3$ \textemdash{} subșirul $[1, 4, 5]$ sau $[3, 4, 5]$
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{SCLM \textemdash{} Implementare}
+  \begin{lstlisting}
+const int nmax = 100000;
+int a[nmax + 1], dp[nmax + 1];
+
+// n, a[] citite anterior
+int ans = 1;
+for (int i = 1; i <= n; i++) {
+    dp[i] = 1;
+    for (int j = 1; j < i; j++) {
+        if (a[j] < a[i]) {
+            dp[i] = max(dp[i], dp[j] + 1);
+        }
+    }
+    ans = max(ans, dp[i]);
+}
+// ans = lungimea SCLM
+  \end{lstlisting}
+  Complexitate: $O(n^2)$ timp, $O(n)$ spațiu.
+  \beginnote{Există și o soluție $O(n \log n)$ cu sortare și căutare binară \textemdash{} pentru cei curioși.}
+\end{frame}
+
+% ============================================================
+\section{Recapitulare}
+
+\begin{frame}{Recapitulare}
+  \begin{center}
+  \begin{tabular}{l p{4.5cm} l}
+    \toprule
+    Problemă & Stare & Complexitate \\
+    \midrule
+    Fibonacci & $dp[i]$ & $O(n)$ \\
+    Drumuri pe grid & $dp[i][j]$ & $O(n \cdot m)$ \\
+    SCLM & $dp[i]$ = lung. max ce se termină la $i$ & $O(n^2)$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \smallskip
+  \textbf{Tiparul DP:}
+  \begin{enumerate}
+    \item Definești \textbf{starea} $dp[i]$ (sau $dp[i][j]$)
+    \item Scrii \textbf{recurența} (tranziția)
+    \item Stabilești \textbf{cazul de bază}
+    \item Calculezi în ordine corectă (\textbf{bottom-up})
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Alte tipuri de Programare Dinamică}
+  Lecțiile de azi au acoperit DP \textbf{pe un șir} și \textbf{pe o matrice}.
+  Există mult mai multe variante:
+  \smallskip
+  \begin{itemize}\itemsep6pt
+    \item \textbf{DP pe două șiruri} \textemdash{} Subșir comun maximal (lecția următoare)
+    \item \textbf{DP cu rucsac} \textemdash{} Problema Rucsacului (lecția următoare)
+    \item \textbf{Range DP} \textemdash{} pe intervale $[l, r]$
+    \item \textbf{Digit DP} \textemdash{} pe cifrele unui număr
+    \item \textbf{Bitmask DP} \textemdash{} starea e o mască de biți
+    \item \textbf{DP pe DAG / arbore} \textemdash{} pe structuri de graf (lot)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Probleme de antrenament}
+  \begin{enumerate}
+    \item \href{https://www.pbinfo.ro/probleme/356/iepuras}{\textbf{Iepuras}}
+          \textcolor{gray}{(pbinfo \#356)}
+    \item \href{https://www.pbinfo.ro/probleme/22/poduri}{\textbf{Poduri}}
+          \textcolor{gray}{(pbinfo \#22)}
+    \item \href{https://www.pbinfo.ro/probleme/80/lsc}{\textbf{LSC}}
+          \textcolor{gray}{(pbinfo \#80 \textemdash{} SCLM)}
+    \item \href{https://cses.fi/problemset/task/1746}{\textbf{Array Description}}
+          \textcolor{gray}{(CSES \#1746)}
+    \item \href{https://cses.fi/problemset/task/1637}{\textbf{Removing Digits}}
+          \textcolor{gray}{(CSES \#1637)}
+    \item \href{https://cses.fi/problemset/task/1145}{\textbf{Increasing Subsequence}}
+          \textcolor{gray}{(CSES \#1145 \textemdash{} SCLM)}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Resurse}
+  \begin{enumerate}
+    \item \href{https://www.pbinfo.ro/articole/21/programare-dinamica}{\textbf{pbinfo}}
+          \textemdash{} Programare Dinamică (în română)
+    \item \href{https://usaco.guide/gold/intro-dp}{\textbf{USACO Guide}}
+          \textemdash{} Introduction to DP (Gold)
+    \item \href{https://cp-algorithms.com/dynamic_programming/intro-to-dp.html}{\textbf{CP-Algorithms}}
+          \textemdash{} Introduction to Dynamic Programming
+  \end{enumerate}
+\end{frame}
+
+\end{document}
