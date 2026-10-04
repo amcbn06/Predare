@@ -18,8 +18,8 @@ Urmărește [programa Olimpiadei Naționale de Informatică](https://cdn.sepi.ro
 | [09](09-merging-two-pointers/lesson.pdf) | **Interclasarea tablourilor \| Tehnica Two Pointers**<br>Operații cu mulțimi · Sliding Window |
 | [10](10-struct-stl/lesson.pdf) | **Tipuri de date non-omogene**<br>Tipul struct · Structuri de date din STL |
 | [11](11-greedy/lesson.pdf) | **Metoda Greedy**<br>Problema spectacolelor · Diverse probleme |
-| 12 | **Indicatorul lui Euler \| Funcția Möbius \| Principiul includerii și excluderii** |
-| 13 | **Backtracking**<br>Generarea elementelor combinatoriale |
+| [12](12-euler-pinex/lesson.pdf) | **Indicatorul lui Euler \| Funcția Möbius \| Principiul includerii și excluderii** |
+| [13](13-backtracking/lesson.pdf) | **Backtracking**<br>Generarea elementelor combinatoriale · Backtracking în plan |
 | 14 | **Simulare OJI** |
 
 ## Resurse
