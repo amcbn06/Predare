@@ -1,47 +1,63 @@
-﻿\documentclass{beamer}
-\usetheme{metropolis}
-\usepackage{../../../resources/style}
+% ================================================================
+% O singură sursă, două PDF-uri (compilează fiecare de două ori):
+%
+%   La clasă (interactiv, soluția se dezvăluie pe bucăți):
+%     pdflatex -jobname=lesson-interactive lesson.tex
+%
+%   Compact (toți pașii într-un singur slide, pentru elevi / README):
+%     pdflatex -jobname=lesson "\PassOptionsToClass{handout}{beamer}\input{lesson.tex}"
+% ================================================================
+\documentclass[9pt]{beamer}
+\usepackage{../../../resources/themes/algolymp-dense}
 
-% Notă pentru începători (apare ca text mic gri la baza slide-ului)
-\newcommand{\beginnote}[1]{%
-  \vfill
-  {\footnotesize\textcolor{gray}{\textit{$\triangleright$ #1 (vezi slide-ul \emph{Resurse})}}}%
-}
+% Evidențiere a doi termeni care se urmăresc prin substituții
+\newcommand{\hla}[1]{\textbf{\textcolor{advAlert}{#1}}}
+\newcommand{\hlb}[1]{\textbf{\textcolor{advAccent}{#1}}}
 
-\newcommand{\bred}[1]{\textbf{\textcolor{red}{#1}}}
-\newcommand{\bblu}[1]{\textbf{\textcolor{blue}{#1}}}
+% Mod interactiv: întrebarea apare prima, apoi soluția se dezvăluie pe bucăți
+% (\item<2->, \uncover<3->{...}, \begin{alertblock}<4->{...}); hint-ul se
+% folosește doar unde elevii chiar trebuie împinși să se gândească.
+% Totul se afișează cumulativ: ce apare la pasul 2 rămâne vizibil după.
+\newenvironment<>{intrebare}{%
+  \begin{uncoverenv}#1%
+  \begin{block}{Întrebare}}{\end{block}\end{uncoverenv}}
+\newenvironment<>{hint}{%
+  \begin{uncoverenv}#1%
+  \setbeamercolor{block title}{bg=advAlert!15,fg=advAlert}%
+  \setbeamercolor{block body}{bg=advAlert!5,fg=black}%
+  \begin{block}{Hint}}{\end{block}\end{uncoverenv}}
+
+% Celulă de tabel vizibilă de la pasul #1
+\newcommand{\at}[2]{\uncover<#1->{#2}}
 
 \title{Algoritmul lui Euclid \textbar\ Exponențiere rapidă}
 \subtitle{}
 \author{Andrei Mihai Ciobanu}
 \institute{Algolymp Summer School}
 \date{}
-\titlegraphic{\includegraphics[width=4cm]{../../../resources/algolymp-logo.png}}
+\titlegraphic{\includegraphics[width=3cm]{../../../resources/algolymp-logo.png}}
 \setbeamertemplate{frame footer}{Algolymp Summer School}
 
-% ----------------------------------------------------------------
+% ================================================================
 \begin{document}
 
-\begin{frame}
-  \titlepage
-\end{frame}
+\begin{frame}\titlepage\end{frame}
 
-\begin{frame}{Cuprins}
-  \tableofcontents
-\end{frame}
+\begin{frame}{Cuprins}\tableofcontents\end{frame}
 
 % ================================================================
 \section{Algoritmul lui Euclid}
 
 \begin{frame}{Cel mai mare divizor comun}
   \begin{block}{Cel mai mare divizor comun}
-    $\text{cmmdc}(a, b)$ = cel mai mare număr natural $d$ astfel încât $d \mid a$ și $d \mid b$. Se mai notează și $\gcd(a, b)$ (\textit{greatest common divisor}) sau doar $(a, b)$.
+    $\text{cmmdc}(a, b)$ = cel mai mare număr natural $d$ astfel încât $d \mid a$ și $d \mid b$.
+    Se mai notează și $\gcd(a, b)$ (\textit{greatest common divisor}) sau doar $(a, b)$.
   \end{block}
-  \bigskip
   \begin{block}{Cel mai mic multiplu comun}
-    $\text{cmmmc}(a, b)$ = cel mai mic număr natural $m$ astfel încât $a \mid m$ și $b \mid m$. Se mai notează și $\text{lcm}(a, b)$ (\textit{lowest common multiple}) sau doar $[a, b]$.
+    $\text{cmmmc}(a, b)$ = cel mai mic număr natural $m$ astfel încât $a \mid m$ și $b \mid m$.
+    Se mai notează și $\text{lcm}(a, b)$ (\textit{lowest common multiple}) sau doar $[a, b]$.
   \end{block}
-  \bigskip
+  \smallskip
   Exemple:
   \begin{itemize}
     \item $\gcd(12, 8) = 4$ \quad $\gcd(17, 5) = 1$ \quad $\gcd(100, 75) = 25$
@@ -49,73 +65,118 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Proprietăți (I)}
+\begin{frame}{Calculul cmmdc}
+  \begin{intrebare}
+    Cum se calculează $\gcd(84, 36)$? Dar $\gcd(10^{18},\ 6 \cdot 10^{17})$?
+  \end{intrebare}
   \begin{itemize}
-    \item $\gcd(a, 0) = \gcd(a, a) = |a|$ \quad \quad (\textit{cazuri de bază})
+    \item<2-> Se listează divizorii lui $a$ în $O(\sqrt{a})$ și se testează fiecare pe $b$.
+      Pentru $\gcd(84, 36) = 12$ metoda funcționează.
+    \item<2-> Pentru numere de ordinul $10^{18}$ rezultă circa $10^9$ operații \textemdash{} prea lent.
+  \end{itemize}
+  \begin{alertblock}<3->{Necesitatea unei metode mai rapide}
+    \textbf{Algoritmul lui Euclid}: sub $100$ de pași pentru numere de $10^{18}$.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Ideea de bază: $\gcd(a, b) = \gcd(a - b,\ b)$}
+  \begin{intrebare}
+    Fie $d$ un divizor comun al lui $a$ și $b$. Ce se poate afirma despre $a - b$?
+  \end{intrebare}
+  \begin{hint}<2->
+    Se scriu $a = d \cdot x$ și $b = d \cdot y$, apoi se calculează $a - b$.
+  \end{hint}
+  \begin{itemize}
+    \item<3-> $a - b = d \cdot (x - y)$, deci $d \mid a - b$.
+    \item<3-> Reciproc, dacă $d \mid a - b$ și $d \mid b$, atunci $d \mid (a - b) + b = a$.
+  \end{itemize}
+  \begin{alertblock}<4->{Concluzie}
+    Perechile $(a, b)$ și $(a - b,\ b)$ au \textbf{aceiași divizori comuni}, deci
+    $\gcd(a, b) = \gcd(a - b,\ b)$.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Scăderi repetate}
+  Regula $\gcd(a, b) = \gcd(a - b, b)$ se aplică repetat până la cazul de bază $\gcd(a, 0) = a$.
+  \begin{intrebare}
+    Cât este $\gcd(12, 8)$ dacă se folosesc \textbf{doar} scăderi?
+  \end{intrebare}
+  \uncover<2->{
+    \[
+      \gcd(12, 8) = \gcd(4, 8) = \gcd(4, 4) = \gcd(0, 4) = 4 \quad \checkmark
+    \]
+  }
+  \begin{intrebare}<3->
+    Câți pași sunt necesari pentru $\gcd(1000, 1)$?
+  \end{intrebare}
+  \uncover<4->{
+    \[
+      \gcd(1000, 1) \rightarrow \gcd(999, 1) \rightarrow \gcd(998, 1) \rightarrow \cdots
+      \rightarrow \gcd(0, 1) = 1
+    \]
+    \textbf{1000 de pași} pentru un rezultat evident \textemdash{} procedeul este prea lent pentru valori mari.
+  }
+\end{frame}
+
+\begin{frame}{De la scăderi la rest}
+  \begin{intrebare}
+    Cum pot fi înlocuite scăderile repetate ale lui $b$ cu o singură operație?
+  \end{intrebare}
+  \uncover<2->{
+    Prin împărțirea cu rest, $a = q \cdot b + r$, cu $0 \leq r < b$. Restul $r$ se notează
+    $a \bmod b$ (restul împărțirii lui $a$ la $b$):
+    \[
+      \gcd(a, b) = \gcd(a - b, b) = \gcd(a - 2b, b) = \cdots = \gcd(a \bmod b,\ b)
+    \]
+  }
+  \begin{alertblock}<3->{Algoritmul lui Euclid}
+    $\gcd(a, b) = \gcd(b,\ a \bmod b)$, \quad cu cazul de bază $\gcd(a, 0) = a$.
+  \end{alertblock}
+  \uncover<4->{Exemplu: $\gcd(48, 18)$}
+  \begin{itemize}
+    \item<4-> $\gcd(48, 18) = \gcd(18, 12)$ \quad ($48 \bmod 18 = 12$)
+    \item<4-> $\gcd(18, 12) = \gcd(12, 6)$ \quad\ ($18 \bmod 12 = 6$)
+    \item<5-> $\gcd(12,\ 6) = \gcd(6,\ 0)$ \quad\ \ ($12 \bmod 6 = 0$)
+    \item<5-> $\gcd(6, 0) = 6$ \checkmark
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Proprietăți}
+  \begin{itemize}
+    \item $\gcd(a, 0) = \gcd(a, a) = |a|$ \quad (\textit{cazuri de bază})
     \item $\gcd(a, b) = \gcd(b, a)$ \quad (\textit{comutativitate})
     \item $\gcd(a, \gcd(b, c)) = \gcd(\gcd(a, b), c)$ \quad (\textit{asociativitate})
     \item $\gcd(k \cdot a, k \cdot b) = k \cdot \gcd(a, b)$, pentru $k > 0$
     \item dacă $\gcd(a, b) = d$, atunci $\gcd\!\left(\dfrac{a}{d},\ \dfrac{b}{d}\right) = 1$
     \item $a \cdot b = \gcd(a, b) \cdot \text{lcm}(a, b)$
-    \item dacă $\gcd(a, b) = 1$, spunem că $a$ și $b$ sunt \textit{prime între ele} (\textit{coprime})
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Proprietăți (II)}
-  \begin{itemize}
-    \item $\gcd(a, b) = \gcd(a \pm k \cdot b,\ b)$, $\forall\, k \in \mathbb{N}$
-    \item \textbf{Consecință directă:} $\gcd(a, b) = \gcd(b,\ a \bmod b)$ \\
-      {\footnotesize\textcolor{gray}{$a \bmod b$ = restul împărțirii lui $a$ la $b$}}
+    \item dacă $\gcd(a, b) = 1$, se spune că $a$ și $b$ sunt \textit{prime între ele} (\textit{coprime})
+    \item $\gcd(a, b) = \gcd(a \pm k \cdot b,\ b)$, $\forall\, k \in \mathbb{N}$ \quad
+      $\Rightarrow$ \quad $\gcd(a, b) = \gcd(b,\ a \bmod b)$
     \item \textbf{Prin descompunere în factori primi:} dacă
-      $n = \prod p_i^{a_i}$ și $m = \prod p_i^{b_i}$, atunci:
-      \[
-        \gcd(n, m) = \prod p_i^{\min(a_i,\, b_i)} \qquad
-        \text{lcm}(n, m) = \prod p_i^{\max(a_i,\, b_i)}
-      \]
+      $n = \prod p_i^{a_i}$ și $m = \prod p_i^{b_i}$, atunci
+      $\gcd(n, m) = \prod p_i^{\min(a_i,\, b_i)}$ și
+      $\text{lcm}(n, m) = \prod p_i^{\max(a_i,\, b_i)}$ \\
       Exemplu: $n = 2^3 \cdot 3^2,\ m = 2^1 \cdot 3^4 \;\Rightarrow\;
         \gcd = 2^1 \cdot 3^2 = 18,\;
         \text{lcm} = 2^3 \cdot 3^4 = 648$
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Algoritmul lui Euclid \textemdash{} Idee}
-  Știm că $\gcd(a, b) = \gcd(a - b, b)$. Putem aplica această regulă repetat până ajungem la cazul de bază $\gcd(a, 0) = a$.
-  \bigskip
-
-  Exemplu: $\gcd(12, 8)$
-  \begin{itemize}
-    \item $\gcd(12, 8) = \gcd(4, 8) = \gcd(4, 4) = \gcd(0, 4) = 4$ \checkmark
-  \end{itemize}
-  \bigskip
-
-  \begin{block}{\textbf{\textcolor{red}{Contraexemplu:}} $a = 1000, b = 1$}
-    $\gcd(1000, 1) \rightarrow \gcd(999, 1) \rightarrow \gcd(998, 1) \rightarrow \cdots \rightarrow \gcd(0, 1) = 1$\\
-    \medskip
-    1000 de pași pentru un rezultat evident. Putem face mai bine?
+\begin{frame}[fragile]{Algoritmul lui Euclid \textemdash{} implementare iterativă}
+  \begin{block}{Explicația implementării}
+    \begin{itemize}
+      \item Se pornește de la $\gcd(a, b) = \gcd(a \bmod b,\ b) = \gcd(b,\ a \bmod b)$
+      \item Cât timp $b > 0$, se calculează restul $r = a \bmod b$;
+        apoi noul $a$ devine $b$, iar noul $b$ devine $r$
+      \item După fiecare pas, noul $b$ este mai mic decât noul $a$ ($r < b$), deci primul
+        termen rămâne cel mai mare și operația $a \bmod b$ se poate efectua în continuare
+      \item Dacă inițial $a < b$, atunci $a \bmod b = a$, iar primul pas doar interschimbă
+        valorile: $(a, b) \rightarrow (b, a)$
+      \item Când $b = 0$, rezultatul este $a$ (cazul de bază $\gcd(a, 0) = a$)
+    \end{itemize}
   \end{block}
-\end{frame}
-
-\begin{frame}{Algoritmul lui Euclid \textemdash{} Idee}
-  Observăm că scăderile repetate cu același $b$ sunt echivalente cu restul împărțirii:
-  \[
-    \gcd(a, b) = \gcd(a - b, b) = \gcd(a - 2b, b) = \cdots = \gcd(a \bmod b,\ b)
-  \]
-  \begin{block}{Observație cheie}
-    $\gcd(a, b) = \gcd(b,\ a \bmod b)$, \quad cu cazul de bază $\gcd(a, 0) = a$.
-  \end{block}
-  \bigskip
-  Exemplu: $\gcd(48, 18)$
-  \begin{itemize}
-    \item $\gcd(48, 18) = \gcd(18, 12)$ \quad ($48 \bmod 18 = 12$)
-    \item $\gcd(18, 12) = \gcd(12, 6)$  \quad ($18 \bmod 12 = 6$)
-    \item $\gcd(12,\ 6) = \gcd(6,\ 0)$  \quad\; ($12 \bmod 6 = 0$)
-    \item $\gcd(6, 0) = 6$ \checkmark
-  \end{itemize}
-\end{frame}
-
-\begin{frame}[fragile, shrink]{Algoritmul lui Euclid \textemdash{} Implementare iterativă}
-  \begin{center}
-  \begin{lstlisting}
+  \begin{uncoverenv}<2->
+    \begin{lstlisting}
 int gcd(int a, int b) {
     while (b != 0) {
         int r = a % b;
@@ -124,75 +185,112 @@ int gcd(int a, int b) {
     }
     return a;
 }
-  \end{lstlisting}
-  \end{center}
+    \end{lstlisting}
+    \begin{itemize}
+      \item Timp: $O(\log \min(a, b))$ \quad Spațiu: $O(1)$
+    \end{itemize}
+  \end{uncoverenv}
+\end{frame}
+
+\begin{frame}[fragile]{Cel mai mic multiplu comun \textemdash{} calcul}
+  \begin{intrebare}
+    Cum se calculează $\text{lcm}(a, b)$ dacă se cunoaște $\gcd(a, b)$?
+  \end{intrebare}
+  \uncover<2->{
+    Din $a \cdot b = \gcd(a, b) \cdot \text{lcm}(a, b)$ rezultă
+    \lstinline[keepspaces=true]|lcm = (a / gcd(a, b)) * b|.
+  }
+  \begin{alertblock}<3->{Ordinea operațiilor}
+    Este indicat ca împărțirea să se facă prima: $a \cdot b$ poate produce overflow chiar dacă
+    $\text{lcm}(a, b)$ încape în tipul de date, iar astfel rezultatul rămâne corect.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Complexitatea algoritmului lui Euclid}
+  \begin{intrebare}
+    Cât devine $a$ după \textbf{doi} pași ai algoritmului?
+  \end{intrebare}
+  \begin{hint}<2->
+    Se separă cazurile $b \leq a/2$ și $b > a/2$. Cât este $a \bmod b$ în fiecare caz?
+  \end{hint}
   \begin{itemize}
-    \item Timp: $O(\log \min(a, b))$ \quad Spațiu: $O(1)$
-    \item Exemplu: \lstinline[keepspaces=true]|gcd(48, 18) = 6|
-    \item Cel mai mic multiplu comun: \lstinline[keepspaces=true]|lcm(a, b) = a / gcd(a, b) * b| \\
-      {\footnotesize\textcolor{gray}{Tip: împarte înainte de înmulțire pentru a evita overflow}}
+    \item<3-> dacă $b \leq a/2$: $a \bmod b < b \leq a/2$
+    \item<3-> dacă $b > a/2$: $a \bmod b = a - b < a/2$
   \end{itemize}
+  \begin{alertblock}<4->{Concluzie}
+    În ambele cazuri $a \bmod b < a/2$, deci după \textbf{doi} pași cel mai mare număr
+    se înjumătățește cel puțin $\Rightarrow$ $O(\log \min(a, b))$ pași.
+  \end{alertblock}
+  \beginnote{$\log$ = numărul de înjumătățiri succesive până când un număr ajunge la $1$; $\log_2 10^{18} \approx 60$}
 \end{frame}
 
 % ================================================================
 \section{Algoritmul lui Euclid extins}
 
-\begin{frame}{Algoritmul lui Euclid extins \textemdash{} Idee}
+\begin{frame}{Identitatea lui Bézout}
   \begin{block}{Identitatea lui Bézout}
     Pentru orice $a, b \in \mathbb{Z}$, există $x, y \in \mathbb{Z}$ astfel încât:
     \[ a \cdot x + b \cdot y = \gcd(a, b) \]
   \end{block}
-  \medskip
-  Vrem să rezolvăm $a \cdot x + b \cdot y = g$. Scriem $a = q \cdot b + r$, unde $q = \lfloor a / b \rfloor$, $r = a \bmod b$:
-  \[
-    (\underbrace{q \cdot b + r}_{a}) \cdot x + b \cdot y = g
-    \;\;\Rightarrow\;\;
-    b \cdot (q \cdot x + y) + r \cdot x = g
-  \]
-  \vfill
-  {\footnotesize\textcolor{gray}{\textit{$\triangleright$ Această secțiune este un concept ușor mai dificil \textemdash{} poți reveni la ea după ce ești confortabil cu restul lecției.}}}
+  Exemplu: $22 \cdot 3 + 13 \cdot (-5) = 66 - 65 = 1 = \gcd(22, 13)$.
+  \begin{intrebare}
+    Cum se determină și numerele $x, y$, nu doar $\gcd$?
+  \end{intrebare}
+  \uncover<2->{
+    Algoritmul lui Euclid reduce $(a, b)$ la o pereche mai mică, $(b,\ a \bmod b)$.
+    Soluția pentru perechea mai mică poate fi folosită pentru perechea inițială?
+  }
+  \beginnote{Secțiunea conține un concept ușor mai dificil \textemdash{} poate fi reluată după parcurgerea restului lecției.}
 \end{frame}
 
-\begin{frame}{Algoritmul lui Euclid extins \textemdash{} Idee}
-  Notăm $x' = q \cdot x + y$ și $y' = x$. Obținem:
-  \[
-    b \cdot x' + r \cdot y' = g
-  \]
-  \begin{block}{Observație cheie}
-    Aceeași formă ca înainte, cu $(b,\ r)$ în loc de $(a,\ b)$ \textemdash{} exact un pas din algoritmul lui Euclid!
-  \end{block}
-  \medskip
-  Putem folosi metoda mersului invers pentru o soluție iterativă sau putem aplica recursiv până la cazul de bază $b = 0$:
-  \[
-    g \cdot x + 0 \cdot y = g \;\Rightarrow\; x = 1,\ y = 0
-  \]
-  Reconstruim soluția înapoi la fiecare pas: $x = y'$,\quad $y = x' - q \cdot y'$.
+\begin{frame}{Euclid extins \textemdash{} ideea}
+  Fie $g = \gcd(a, b)$ și ecuația $a \cdot x + b \cdot y = g$.
+  Se scrie $a = q \cdot b + r$, unde $q = \lfloor a / b \rfloor$ și $r = a \bmod b$.
+  \begin{intrebare}
+    Ce formă are ecuația după înlocuirea lui $a$ și gruparea termenilor care conțin $b$?
+  \end{intrebare}
+  \uncover<2->{
+    \[
+      (\underbrace{q \cdot b + r}_{a}) \cdot x + b \cdot y = g
+      \;\;\Rightarrow\;\;
+      b \cdot (q \cdot x + y) + r \cdot x = g
+    \]
+  }
+  \uncover<3->{
+    Cu notațiile $x' = q \cdot x + y$ și $y' = x$, ecuația devine $b \cdot x' + r \cdot y' = g$.
+  }
+  \begin{itemize}
+    \item<4-> Forma este aceeași, cu $(b,\ r)$ în loc de $(a,\ b)$ \textemdash{} exact un pas din algoritmul lui Euclid.
+    \item<4-> Reducerea continuă până la cazul de bază $b = 0$: $g \cdot x + 0 \cdot y = g \;\Rightarrow\; x = 1,\ y = 0$
+  \end{itemize}
+  \begin{alertblock}<5->{Reconstrucție la întoarcere}
+    Din $x' = q \cdot x + y$ și $y' = x$ rezultă $x = y'$, \quad $y = x' - q \cdot y'$.
+  \end{alertblock}
 \end{frame}
 
-\begin{frame}[shrink]{Exemplu pe hârtie: $22x + 13y = \gcd(22, 13)$}
-  \textbf{Pasul 1: Aplicăm algoritmul lui Euclid}
+\begin{frame}{Exemplu pe hârtie: $22x + 13y = \gcd(22, 13)$}
+  \textbf{Pasul 1: Se aplică algoritmul lui Euclid}
   \begin{itemize}
     \item $22 = 1 \cdot 13 + 9$ \hfill {\footnotesize\textcolor{gray}{$\Rightarrow 9 = 22 - 1 \cdot 13$}}
     \item $13 = 1 \cdot 9 + 4$ \hfill {\footnotesize\textcolor{gray}{$\Rightarrow 4 = 13 - 1 \cdot 9$}}
     \item $9 = 2 \cdot 4 + 1$ \hfill {\footnotesize\textcolor{gray}{$\Rightarrow 1 = 9 - 2 \cdot 4$}}
     \item $4 = 4 \cdot 1 + 0 \;\Rightarrow\; \gcd(22, 13) = 1$
   \end{itemize}
-
-  \bigskip
-  \textbf{Pasul 2: Înlocuim înapoi}
+  \begin{intrebare}
+    Cum se exprimă $1$ folosind doar $22$ și $13$?
+  \end{intrebare}
+  \uncover<2->{\textbf{Pasul 2: Substituție în ordine inversă, de jos în sus}}
   \begin{itemize}
-    \item $1 = 1 \cdot \bred{9} - 2 \cdot \bblu{4}$
-    \item $1 = 1 \cdot \bred{9} - 2 \cdot (\bblu{13} - 1 \cdot \bred{9}) = 3 \cdot \bred{9} - 2 \cdot \bblu{13}$
-    \item $1 = 3 \cdot (1 \cdot \bred{22} - 1 \cdot \bblu{13}) - 2 \cdot \bblu{13} = 3 \cdot \bred{22} - 5 \cdot \bblu{13}$
+    \item<2-> $1 = 1 \cdot \hla{9} - 2 \cdot \hlb{4}$
+    \item<3-> $1 = 1 \cdot \hla{9} - 2 \cdot (\hlb{13} - 1 \cdot \hla{9}) = 3 \cdot \hla{9} - 2 \cdot \hlb{13}$
+    \item<4-> $1 = 3 \cdot (1 \cdot \hla{22} - 1 \cdot \hlb{13}) - 2 \cdot \hlb{13} = 3 \cdot \hla{22} - 5 \cdot \hlb{13}$
   \end{itemize}
-  \bigskip
-  \begin{block}{Soluție}
+  \begin{alertblock}<5->{Soluție}
     $x = 3,\ y = -5$ \quad \checkmark \quad ($22 \cdot 3 + 13 \cdot (-5) = 66 - 65 = 1$)
-  \end{block}
+  \end{alertblock}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Algoritmul lui Euclid extins \textemdash{} Implementare iterativă}
-  \begin{center}
+\begin{frame}[fragile]{Euclid extins \textemdash{} implementare iterativă}
   \begin{lstlisting}
 // Gaseste x, y cu: a*x + b*y = gcd(a, b)
 int gcd_ext(int a, int b, int &x, int &y) {
@@ -211,22 +309,49 @@ int gcd_ext(int a, int b, int &x, int &y) {
     return a;
 }
   \end{lstlisting}
-  \end{center}
   \begin{itemize}
-    \item \lstinline|int &x| = parametru prin referință: modificările din funcție se văd la apelant
+    \item \lstinline|int &x| = parametru transmis prin referință: modificările din funcție sunt vizibile în apelant
     \item Timp: $O(\log \min(a, b))$ \quad Spațiu: $O(1)$
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Inițializarea coeficienților $x_0, y_0, x_1, y_1$}
+  Fie $a_0, b_0$ valorile inițiale. La orice pas al buclei sunt menținute relațiile:
+  \[
+    a = a_0 \cdot x_0 + b_0 \cdot y_0 \qquad b = a_0 \cdot x_1 + b_0 \cdot y_1
+  \]
+  \begin{intrebare}
+    Ce valori trebuie să aibă $x_0, y_0, x_1, y_1$ înainte de primul pas?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> Înainte de primul pas, $a = a_0$ și $b = b_0$.
+    \item<2-> $a_0 = a_0 \cdot 1 + b_0 \cdot 0$ și $b_0 = a_0 \cdot 0 + b_0 \cdot 1$,
+      deci $x_0 = 1,\ y_0 = 0,\ x_1 = 0,\ y_1 = 1$.
+    \item<3-> La final $b = 0$ și $a = \gcd$, deci $x_0, y_0$ sunt coeficienții căutați.
   \end{itemize}
 \end{frame}
 
 % ================================================================
 \section{Exponențiere rapidă}
 
-\begin{frame}{Exponențiere rapidă \textemdash{} Idee}
+\begin{frame}{Exponențiere rapidă \textemdash{} ideea}
   \begin{block}{Problema}
-    Calculează $a^n$ eficient. Varianta naivă ($a \cdot a \cdots a$, de $n$ ori) are complexitate $O(n)$.
+    Calculul eficient al lui $a^n$. Varianta naivă ($n$ înmulțiri) are complexitate $O(n)$.
   \end{block}
-  \bigskip
-  \begin{block}{Observație cheie}
+  \begin{intrebare}
+    Cum se poate calcula $2^{10}$ cu mai puțin de $9$ înmulțiri?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> $2^{10} = (2^5)^2$: $2^5$ se calculează o singură dată și se ridică la pătrat
+    \item<2-> Aceeași jumătate nu se mai calculează de două ori: exponentul se înjumătățește
+  \end{itemize}
+  \begin{intrebare}<3->
+    Cum se procedează dacă exponentul este impar, de exemplu $2^5$?
+  \end{intrebare}
+  \begin{itemize}
+    \item<4-> Se scoate o bază în afară: $2^5 = 2 \cdot 2^4$, iar $2^4$ are exponent par
+  \end{itemize}
+  \uncover<4->{
     \[
       a^n = \begin{cases}
         1 & n = 0 \\
@@ -234,13 +359,26 @@ int gcd_ext(int a, int b, int &x, int &y) {
         a \cdot a^{n-1} & n \text{ impar}
       \end{cases}
     \]
-  \end{block}
-  \bigskip
-  Exemplu: $2^{10} \rightarrow 2^5 \rightarrow 2^4 \rightarrow 2^2 \rightarrow 2^1 \rightarrow 2^0$ \quad (5 pași în loc de 10)
+  }
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Exponențiere rapidă \textemdash{} Implementare iterativă}
-  \begin{center}
+\begin{frame}{Numărul de pași}
+  Exemplu: $2^{10} \rightarrow 2^5 \rightarrow 2^4 \rightarrow 2^2 \rightarrow 2^1 \rightarrow 2^0$
+  \quad (5 pași în loc de 10)
+  \begin{intrebare}
+    Câți pași sunt necesari pentru $n = 10^9$?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> $10^9$ se împarte la $2$ de circa $30$ de ori, deoarece $2^{30} \approx 10^9$
+    \item<2-> La fiecare înjumătățire se face cel mult o înmulțire suplimentară pentru exponentul impar,
+      deci cel mult circa $2 \cdot 30$ înmulțiri
+  \end{itemize}
+  \begin{alertblock}<3->{Concluzie}
+    Complexitate $O(\log n)$, în loc de $10^9$ pași.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Exponențiere rapidă \textemdash{} implementare iterativă}
   \begin{lstlisting}
 long long power(long long base, int exp) {
     long long result = 1;
@@ -253,69 +391,110 @@ long long power(long long base, int exp) {
     return result;
 }
   \end{lstlisting}
-  \end{center}
   \begin{itemize}
     \item Timp: $O(\log n)$ \quad Spațiu: $O(1)$
-    \item \textbf{Atenție:} \lstinline|base * base| poate da overflow pentru baze mari \textemdash{} în concursuri se lucrează de obicei modulo un număr prim
+    \item \alert{Atenție:} \lstinline|base * base| poate da overflow pentru baze mari \textemdash{}
+      în concursuri se lucrează de obicei modulo un număr prim
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Urmărirea execuției: \texttt{power(3, 5)}}
+  \begin{intrebare}
+    Ce valori au \texttt{result}, \texttt{base} și \texttt{exp} la finalul fiecărei iterații?
+  \end{intrebare}
+  \begin{center}
+    \begin{tabular}{cccc}
+      \toprule
+      Iterația & \texttt{result} & \texttt{base} & \texttt{exp} \\
+      \midrule
+      început & $1$ & $3$ & $5$ \\
+      \at{2}{$1$ (\texttt{exp} $= 5$, impar)} & \at{2}{$3$} & \at{2}{$9$} & \at{2}{$2$} \\
+      \at{3}{$2$ (\texttt{exp} $= 2$, par)}   & \at{3}{$3$} & \at{3}{$81$} & \at{3}{$1$} \\
+      \at{4}{$3$ (\texttt{exp} $= 1$, impar)} & \at{4}{$243$} & \at{4}{$6561$} & \at{4}{$0$} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \begin{alertblock}<5->{Rezultat}
+    \texttt{power(3, 5)} $= 243 = 3^5$ \quad \checkmark
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Legătura cu scrierea binară}
+  În exemplul \texttt{power(3, 5)}: $5 = 101_{(2)}$, iar \texttt{base} a luat valorile $3^1,\ 3^2,\ 3^4$.
+  \begin{intrebare}
+    Ce legătură există între algoritm și scrierea lui $n$ în baza $2$?
+  \end{intrebare}
+  \begin{hint}<2->
+    Se descompune $5 = 4 + 1$ și se scrie $3^5$ ca produs de puteri ale lui $3$.
+  \end{hint}
+  \begin{itemize}
+    \item<3-> $3^5 = 3^4 \cdot 3^1$; \texttt{base} parcurge $a^{2^0}, a^{2^1}, a^{2^2}, \ldots$, iar
+      \texttt{result} se înmulțește doar cu bazele corespunzătoare \textbf{biților egali cu $1$}
+      din scrierea binară a lui $n$
+  \end{itemize}
+  \begin{alertblock}<4->{Concluzie}
+    Numărul de biți ai lui $n$ este $\approx \log_2 n$, deci $O(\log n)$ iterații.
+  \end{alertblock}
 \end{frame}
 
 % ================================================================
 \section{Bonus \textemdash{} Implementări recursive}
 
-\begin{frame}{Recursivitate \textemdash{} Ce este?}
+\begin{frame}{Recursivitatea}
   \begin{block}{Definiție}
     O funcție este \textbf{recursivă} dacă se apelează pe ea însăși.
   \end{block}
-  \bigskip
   Orice funcție recursivă are nevoie de:
   \begin{itemize}
-    \item Un \textbf{caz de bază} \textemdash{} condiția de oprire (altfel rulează la infinit)
+    \item Un \textbf{caz de bază} \textemdash{} condiția de oprire
     \item Un \textbf{apel recursiv} pe o subproblemă mai mică
   \end{itemize}
-  \bigskip
   Exemplu: $n! = n \cdot (n-1)!$, cu cazul de bază $0! = 1$
-  \beginnote{Recursivitate \textemdash{} concept nou}
-\end{frame}
-
-\begin{frame}{De ce implementări recursive?}
+  \begin{intrebare}
+    Ce se întâmplă dacă lipsește cazul de bază?
+  \end{intrebare}
   \begin{itemize}
-    \item Codul reflectă direct definiția matematică \textemdash{} mai ușor de înțeles și de scris
-    \item De obicei mai scurt decât varianta iterativă
+    \item<2-> Funcția s-ar apela la nesfârșit până se umple stiva de apeluri \textemdash{}
+      \textbf{stack overflow}
   \end{itemize}
-  \medskip
-  \begin{block}{\textbf{\textcolor{red}{Atenție}} \textemdash{} dezavantaje}
-    \begin{itemize}
-      \item Overhead de apeluri de funcție \textemdash{} ușor mai lent
-      \item Pentru intrări foarte mari poate da \textbf{stack overflow}
-    \end{itemize}
-  \end{block}
-  \medskip
-  \begin{block}{Concluzie}
-    Varianta recursivă e utilă pentru a \textbf{înțelege} algoritmul; \\ varianta iterativă e de preferat în concursuri.
+  \begin{block}<3->{\textcolor{advAlert}{Atenție} \textemdash{} dezavantajele recursivității}
+    Overhead de apeluri de funcție (ușor mai lent) și risc de \textbf{stack overflow} pentru intrări
+    foarte mari. Codul recursiv reflectă direct definiția matematică, dar în concursuri
+    este preferată varianta iterativă.
   \end{block}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Algoritmul lui Euclid \textemdash{} Implementare recursivă}
-  \begin{center}
-  \begin{lstlisting}
+\begin{frame}[fragile]{Euclid \textemdash{} implementare recursivă}
+  \begin{intrebare}
+    Cum se scrie $\gcd$ recursiv pornind de la $\gcd(a, b) = \gcd(b,\ a \bmod b)$?
+    Care este cazul de bază?
+  \end{intrebare}
+  \begin{uncoverenv}<2->
+    \begin{lstlisting}
 int gcd(int a, int b) {
     if (b == 0)
         return a;
     return gcd(b, a % b);
 }
-  \end{lstlisting}
-  \end{center}
-  \bigskip
-  \begin{itemize}
-    \item Codul reflectă direct proprietatea $\gcd(a, b) = \gcd(b,\ a \bmod b)$
-    \item Aceeași complexitate ca varianta iterativă: $O(\log \min(a, b))$
-  \end{itemize}
+    \end{lstlisting}
+    \begin{itemize}
+      \item Cazul de bază este $\gcd(a, 0) = a$
+      \item Codul reflectă direct proprietatea $\gcd(a, b) = \gcd(b,\ a \bmod b)$
+      \item Aceeași complexitate ca varianta iterativă: $O(\log \min(a, b))$
+    \end{itemize}
+  \end{uncoverenv}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Algoritmul lui Euclid extins \textemdash{} Implementare recursivă}
-  \begin{center}
-  \begin{lstlisting}
+\begin{frame}[fragile]{Euclid extins \textemdash{} implementare recursivă}
+  \begin{intrebare}
+    Ce valori au $x$ și $y$ în cazul de bază $b = 0$? Cum se reconstruiesc la întoarcere?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> Cazul de bază: $a \cdot x + 0 \cdot y = a$, deci $x = 1,\ y = 0$
+    \item<2-> La întoarcere: $x = y'$, \quad $y = x' - q \cdot y'$
+  \end{itemize}
+  \begin{uncoverenv}<3->
+    \begin{lstlisting}
 int gcd_ext(int a, int b, int &x, int &y) {
     if (b == 0) {
         x = 1; y = 0;
@@ -327,15 +506,14 @@ int gcd_ext(int a, int b, int &x, int &y) {
     y = x1 - (a / b) * y1;
     return d;
 }
-  \end{lstlisting}
-  \end{center}
-  \begin{itemize}
-    \item Timp: $O(\log \min(a, b))$ \quad Spațiu: $O(\log \min(a, b))$ \textemdash{} stiva de apeluri
-  \end{itemize}
+    \end{lstlisting}
+    \begin{itemize}
+      \item Timp: $O(\log \min(a, b))$ \quad Spațiu: $O(\log \min(a, b))$ \textemdash{} stiva de apeluri
+    \end{itemize}
+  \end{uncoverenv}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Exponențiere rapidă \textemdash{} Implementare recursivă}
-  \begin{center}
+\begin{frame}[fragile]{Exponențiere rapidă \textemdash{} implementare recursivă}
   \begin{lstlisting}
 long long power(long long base, int exp) {
     if (exp == 0)
@@ -347,10 +525,17 @@ long long power(long long base, int exp) {
     return base * power(base, exp - 1);
 }
   \end{lstlisting}
-  \end{center}
   \begin{itemize}
-    \item \lstinline|half * half| evită calculul dublu \lstinline[keepspaces=true]|power(base, exp / 2) * power(base, exp / 2)|
     \item Timp: $O(\log n)$ \quad Spațiu: $O(\log n)$ \textemdash{} stiva de apeluri
+  \end{itemize}
+  \begin{intrebare}
+    De ce nu se scrie direct
+    \lstinline[keepspaces=true]|return power(base, exp / 2) * power(base, exp / 2);|?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> Două apeluri la fiecare nivel $\Rightarrow$ numărul de apeluri se dublează la fiecare nivel
+    \item<2-> În total $O(n)$ apeluri \textemdash{} câștigul se pierde; cu \lstinline|half * half|
+      se face \textbf{un singur} apel pe nivel: $O(\log n)$
   \end{itemize}
 \end{frame}
 
@@ -374,46 +559,46 @@ long long power(long long base, int exp) {
   \end{center}
 \end{frame}
 
-% ================================================================
-\section{Resurse}
-
-\begin{frame}{Resurse}
-  \begin{block}{Algoritmul lui Euclid \textemdash{} $\gcd$ și $\text{lcm}$}
-    \begin{itemize}
-      \item \href{https://www.infoarena.ro/algoritmul-lui-euclid}{\textbf{infoarena.ro}} \textemdash{} Algoritmul lui Euclid (RO)
-      \item \href{https://cp-algorithms.com/algebra/euclid-algorithm.html}{\textbf{cp-algorithms.com}} \textemdash{} Euclidean algorithm (EN)
-      \item \href{https://cp-algorithms.com/algebra/extended-euclid-algorithm.html}{\textbf{cp-algorithms.com}} \textemdash{} Extended Euclidean algorithm (EN)
-    \end{itemize}
+\begin{frame}{Probleme de antrenament}
+  \begin{block}{AlgoCode}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1557}{\textbf{GCD and LCM}}
+            \textcolor{gray}{(AlgoCode \#1557)}
+      \item \href{https://code.algolymp.com/problems/4230}{\textbf{GCD and LCM Queries}}
+            \textcolor{gray}{(AlgoCode \#4230)}
+      \item \href{https://code.algolymp.com/problems/4270}{\textbf{GCD Power Queries}}
+            \textcolor{gray}{(AlgoCode \#4270)}
+    \end{enumerate}
   \end{block}
-  \begin{block}{Exponențiere rapidă}
-    \begin{itemize}
-      \item \href{https://cp-algorithms.com/algebra/binary-exp.html}{\textbf{cp-algorithms.com}} \textemdash{} Binary exponentiation (EN)
-    \end{itemize}
-  \end{block}
-  \begin{block}{Recursivitate}
-    \begin{itemize}
-      \item \href{https://www.pbinfo.ro/articole/3873/recursivitate}{\textbf{pbinfo.ro}} \textemdash{} Recursivitate (RO)
-      \item \href{https://cppreference.com}{\textbf{cppreference.com}} \textemdash{} documentație funcții C++
-    \end{itemize}
+  \begin{block}{Altele}
+    \begin{enumerate}
+      \item \href{https://www.pbinfo.ro/probleme/58/cmmdc}{\textbf{cmmdc}}
+            \textcolor{gray}{(pbinfo.ro)}
+      \item \href{https://www.pbinfo.ro/probleme/59/cmmmc}{\textbf{cmmmc}}
+            \textcolor{gray}{(pbinfo.ro)}
+      \item \href{https://www.infoarena.ro/problema/euclid3}{\textbf{euclid3}}
+            \textcolor{gray}{(infoarena.ro)}
+      \item \href{https://infoarena.ro/problema/lgput}{\textbf{lgput}}
+            \textcolor{gray}{(infoarena.ro)}
+    \end{enumerate}
   \end{block}
 \end{frame}
 
-% ================================================================
-\section{Probleme de antrenament}
-
-\begin{frame}{Probleme de antrenament}
-  \begin{block}{pbinfo.ro}
-    \begin{itemize}
-      \item \href{https://www.pbinfo.ro/probleme/58/cmmdc}{\textbf{cmmdc}}
-      \item \href{https://www.pbinfo.ro/probleme/59/cmmmc}{\textbf{cmmmc}}
-    \end{itemize}
-  \end{block}
-  \begin{block}{infoarena.ro}
-    \begin{itemize}
-      \item \href{https://www.infoarena.ro/problema/euclid3}{\textbf{euclid3}}
-      \item \href{https://infoarena.ro/problema/lgput}{\textbf{lgput}}
-    \end{itemize}
-  \end{block}
+\begin{frame}{Resurse}
+  \begin{enumerate}
+    \item \href{https://www.infoarena.ro/algoritmul-lui-euclid}{\textbf{infoarena.ro}}
+          \textemdash{} Algoritmul lui Euclid (RO)
+    \item \href{https://cp-algorithms.com/algebra/euclid-algorithm.html}{\textbf{cp-algorithms.com}}
+          \textemdash{} Euclidean algorithm (EN)
+    \item \href{https://cp-algorithms.com/algebra/extended-euclid-algorithm.html}{\textbf{cp-algorithms.com}}
+          \textemdash{} Extended Euclidean algorithm (EN)
+    \item \href{https://cp-algorithms.com/algebra/binary-exp.html}{\textbf{cp-algorithms.com}}
+          \textemdash{} Binary exponentiation (EN)
+    \item \href{https://www.pbinfo.ro/articole/3873/recursivitate}{\textbf{pbinfo.ro}}
+          \textemdash{} Recursivitate (RO)
+    \item \href{https://cppreference.com}{\textbf{cppreference.com}}
+          \textemdash{} documentație completă C++
+  \end{enumerate}
 \end{frame}
 
 \end{document}
