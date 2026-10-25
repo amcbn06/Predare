@@ -1,0 +1,646 @@
+% Infogym \textemdash{} grupa 7--8 avansați, 24 octombrie 2026
+% Compilare (de două ori):  pdflatex lesson.tex
+% Setul complet de probleme (pentru alte alegeri): probleme.xlsx
+\documentclass[8pt,mathserif]{beamer}
+\usepackage{../../../resources/themes/infogym}
+\setbeamersize{text margin left=0.7cm, text margin right=0.7cm}
+
+\title[Two pointers. Căutare binară pe rezultat]{Two pointers. Căutare binară pe rezultat}
+\author[A. M. Ciobanu]{Andrei Mihai Ciobanu}
+\institute[Infogym]{Infogym \textbullet{} grupa 7--8 avansați}
+\date[24.10.2026]{24 octombrie 2026}
+\titlegraphic{\includegraphics[height=1.5cm]{../../../resources/infogym-logo.jpeg}\hspace{1.4cm}%
+              \raisebox{0.4cm}{\includegraphics[width=4.2cm]{../../../resources/hlo-logo.pdf}}}
+
+% ------------------------------------------------------------------
+% Diagrame
+% Fereastră glisantă pe șirul 2 1 3 1 1 4 2 :  \winrow{rând}{l}{r}{text}
+\newcommand{\winrow}[4]{%
+  \foreach \v [count=\i from 0] in {2,1,3,1,1,4,2} {%
+    \ifnum\i<#2\relax \tikzset{cs/.style={cellU,text=igNavy!35}}%
+    \else\ifnum\i>#3\relax \tikzset{cs/.style={cellU,text=igNavy!35}}%
+    \else \tikzset{cs/.style={cellW}}\fi\fi
+    \node[cs] at (\i*0.6,-#1*0.6) {\v};}%
+  \node[lab,font=\scriptsize] at (7*0.6-0.2,-#1*0.6) {#4};}
+
+% Căutare binară pe 0..16, check(x) adevărat pentru x <= 10 :  \bsrow{rând}{st}{dr}{mid}{text}
+\newcommand{\bsrow}[5]{%
+  \foreach \i in {0,...,16} {%
+    \ifnum\i<#2\relax \tikzset{cs/.style={cellT}}%
+    \else\ifnum\i>#3\relax \tikzset{cs/.style={cellF}}%
+    \else \tikzset{cs/.style={cellU}}\fi\fi
+    \ifnum\i=#4\relax \tikzset{cs/.style={cellU,line width=1.6pt,draw=igBlue}}\fi
+    \node[cs,minimum width=0.4cm,minimum height=0.5cm] at (\i*0.41,-#1*0.75) {\tiny\i};}%
+  \node[lab,font=\scriptsize] at (16*0.41+0.3,-#1*0.75) {#5};}
+
+% Etichete de nivel pentru lista de probleme
+\newcommand{\lvlU}{\textcolor{igGreen}{ușor}}
+\newcommand{\lvlM}{\textcolor{igAmber!85!black}{mediu}}
+\newcommand{\lvlG}{\textcolor{igRed}{greu}}
+\newcommand{\lvlO}{\textcolor{gray}{olimpiadă}}
+
+% ==================================================================
+\begin{document}
+
+% ------------------------------------------------------------------ titlu
+\igtitleslide
+
+% ==================================================================
+\section{Monotonia}
+
+\begin{frame}{Monotonia}
+  \begin{block}{Definiție}
+    O proprietate $P(x)$ este \textbf{monotonă} dacă își schimbă valoarea cel mult o dată când $x$ crește. De exemplu, odată adevărată, rămâne adevărată pentru toate valorile mai mari:
+    \[ P(x_1) \text{ adevărată} \ \text{și}\ x_1 \le x_2 \;\Longrightarrow\; P(x_2) \text{ adevărată} \]
+  \end{block}
+  \begin{center}
+  \begin{tikzpicture}
+    \foreach \i in {1,...,10} {%
+      \ifnum\i<6 \node[cellF,minimum width=0.7cm,minimum height=0.7cm] at (\i*0.8,0) {F};
+      \else      \node[cellT,minimum width=0.7cm,minimum height=0.7cm] at (\i*0.8,0) {T};
+      \fi
+      \ifnum\i<6 \node[cellT,minimum width=0.7cm,minimum height=0.7cm] at (\i*0.8,-0.95) {T};
+      \else      \node[cellF,minimum width=0.7cm,minimum height=0.7cm] at (\i*0.8,-0.95) {F};
+      \fi
+      \node[idx] at (\i*0.8,0.55) {\i};}
+    \node[lab,font=\small] at (10.8*0.8,0) {sufix adevărat};
+    \node[lab,font=\small] at (10.8*0.8,-0.95) {prefix adevărat};
+    \draw[<-,thick,igBlue] (5.5*0.8,-1.4) -- (5.5*0.8,-1.75);
+    \node[ptr] at (5.5*0.8,-2.0) {pragul $x^* = 6$};
+  \end{tikzpicture}
+  \end{center}
+  \begin{itemize}
+    \item Definiția este valabilă și invers: $\mathrm{T}\dots\mathrm{T}\,\mathrm{F}\dots\mathrm{F}$ (prefix adevărat, sufix fals), unde odată falsă rămâne falsă
+    \item Problema se reduce la găsirea \textbf{pragului} $x^*$, fără a verifica toate valorile
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple de proprietăți monotone}
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{@{}p{0.26\textwidth}p{0.42\textwidth}p{0.19\textwidth}@{}}
+    \toprule
+    \textbf{Situație} & \textbf{Proprietate} & \textbf{Variabila} \\
+    \midrule
+    Tablou sortat crescător & $a[i] \ge v$ & poziția $i$ \\
+    Elemente nenegative & suma $a_l + \dots + a_r$ este $\ge S$ & capătul $r$ \\
+    Fabrică cu mai multe utilaje & „în $T$ secunde se produc cel puțin $t$ produse” & timpul $T$ \\
+    Transport în $k$ drumuri & „toate obiectele încap cu capacitatea $C$” & capacitatea $C$ \\
+    Perechi $a_i + b_j$ & „există cel puțin $k$ perechi cu suma $\le x$” & valoarea $x$ \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Două moduri de a exploata monotonia}
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{@{}p{0.19\textwidth}p{0.34\textwidth}p{0.34\textwidth}@{}}
+    \toprule
+     & \textbf{Căutare binară pe rezultat} & \textbf{Two pointers} \\
+    \midrule
+    \textbf{Unde apare monotonia} & predicatul $\mathrm{check}(x)$ pe domeniul răspunsurilor & pentru fiecare $l$, cel mai mare $r$ valid, $r(l)$, nu scade când $l$ crește \\
+    \textbf{Ce se elimină} & jumătate din domeniu la fiecare test & pozițiile la care indicii nu se mai întorc \\
+    \textbf{Cost} & $O(\log V)$ teste $\times$ costul verificării & $O(n)$ amortizat \\
+    \bottomrule
+  \end{tabular}
+  \smallskip
+
+  Aceeași idee în ambele cazuri: o proprietate monotonă permite ca \textbf{nu toate cazurile} să fie verificate.
+\end{frame}
+
+\begin{frame}{Când monotonia lipsește}
+  \begin{alertblock}{Two pointers cu numere negative}
+    Cea mai scurtă secvență cu suma $\ge S$ în șirul $[\,5,\,-10,\,6\,]$ pentru $S = 6$ este $[\,6\,]$, de lungime $1$.\\
+    Sumele secvențelor care încep în $l = 1$ sunt $5, -5, 1$ și nu ajung niciodată la $6$, dar secvența $[6]$ începe în $l = 3$. Suma \textbf{nu mai este monotonă} în $r$, deci extinderea lui $r$ nu se poate opri la prima sumă mică, iar $r(l)$ nu mai este monoton în $l$.
+  \end{alertblock}
+  \begin{alertblock}{Căutare binară cu predicat care nu este monoton}
+    \begin{center}
+    \begin{tikzpicture}
+      \foreach \z [count=\i from 1] in {F,T,F,T,T,T,F,T} {%
+        \node[cell\z,minimum width=0.8cm,minimum height=0.8cm] at (\i*0.9,0) {\z};}
+    \end{tikzpicture}
+    \end{center}
+    Testul din mijloc nu mai spune în ce jumătate se află răspunsul: soluția poate fi eliminată din greșeală.
+  \end{alertblock}
+\end{frame}
+
+% ==================================================================
+\section{Two pointers}
+
+\begin{frame}{Two pointers: ideea}
+  \begin{itemize}
+    \item Doi indici, $l$ și $r$, parcurg tabloul; fiecare se deplasează \textbf{într-un singur sens}, fără întoarceri
+    \item Două variante frecvente:
+      \begin{itemize}
+        \item \textbf{fereastră glisantă}: $l \le r$, ambii cresc; se lucrează cu secvențe $[l, r]$
+        \item \textbf{capete opuse}: $l$ crește, $r$ scade; se lucrează de obicei pe tablouri sortate după o anumită regulă
+      \end{itemize}
+    \item \textbf{"Rezumatul" ferestrei}: despre elementele din $[l, r]$ se păstrează anumite informații (suma, frecvențele, numărul de valori distincte) care se actualizează rapid (în $O(1)$ sau $o(\log n)$) când un element intră ($r$ crește) sau iese ($l$ crește)
+  \end{itemize}
+  \begin{block}{Monotonia din spatele tehnicii}
+    Pentru fiecare $l$, cel mai mare $r$ cu $[l, r]$ validă, notat $r(l)$, \textbf{nu scade} când $l$ crește: $l$ avansează și $r$ se ajustează în consecință.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Fereastră glisantă: cea mai lungă secvență cu suma $\le S$}
+  \begin{exampleblock}{Enunț}
+    Se dă șirul $a = (2,1,3,1,1,4,2)$ de numere nenegative (indexat de la $1$) și $S = 6$. Să se determine lungimea celei mai lungi secvențe cu suma cel mult $S$. Pentru fiecare $l$, capătul $r$ se extinde cât timp suma rămâne $\le S$.
+  \end{exampleblock}
+  \centering
+  \begin{tikzpicture}
+    \foreach \i in {0,...,6} \node[idx] at (\i*0.6,0.5) {\number\numexpr\i+1\relax};
+    \winrow{0}{0}{2}{$l=1$: $r=3$, sumă $6$, lungime $3$}
+    \winrow{1}{1}{4}{$l=2$: $r=5$, sumă $6$, lungime $4$ \quad $\leftarrow$ maximul}
+    \winrow{2}{2}{4}{$l=3$: $r=5$, sumă $5$, lungime $3$}
+    \winrow{3}{3}{5}{$l=4$: $r=6$, sumă $6$, lungime $3$}
+    \winrow{4}{4}{5}{$l=5$: $r=6$, sumă $5$, lungime $2$}
+    \winrow{5}{5}{6}{$l=6$: $r=7$, sumă $6$, lungime $2$}
+    \winrow{6}{6}{6}{$l=7$: $r=7$, sumă $2$, lungime $1$}
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Șablon two pointers: secvențe cu suma $\le S$}
+  \begin{lstlisting}
+// Numarul de secvente cu suma <= S   (tabloul a este indexat de la 1)
+long long answer = 0, sum = 0;
+for (int l = 1, r = 0; l <= n; ++l) {
+    // extindem cat putem
+    while (r + 1 <= n && sum + a[r + 1] <= S) {
+        // adaugam a[r + 1] in secventa
+        sum += a[++r];
+    }
+    // secventele valide care incep la l au capatul drept pana in r
+    answer += r - l + 1;   // secventa poate fi vida: atunci se aduna 0
+    // eliminam a[l]
+    if (r >= l) sum -= a[l]; else r = l;   // fereastra vida: r nu ramane in urma lui l
+}
+  \end{lstlisting}
+  \begin{itemize}
+    \item \textbf{Complexitate $O(n)$}: $l$ și $r$ doar cresc și fiecare face cel mult $n$ pași, deci în total cel mult $2n$ mutări
+    \item Funcționează deoarece elementele sunt \textbf{nenegative}: scoaterea lui $a[l]$ nu poate crește suma, iar adăugarea lui $a[r]$ nu o poate scădea
+    \item Pentru \textbf{cea mai lungă} secvență, în locul adunării se folosește \texttt{best = max(best, r - l + 1)}; răspunsul poate ajunge la ordinul $n^2$, deci \texttt{long long}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Șablon two pointers: secvențe cu suma $\ge S$}
+  \begin{lstlisting}
+// Numarul de secvente cu suma >= S   (S > 0, elemente nenegative)
+// Alternativ: numarul total de secvente minus cele cu suma <= S - 1
+long long answer = 0, sum = 0;
+for (int l = 1, r = 0; l <= n; ++l) {
+    // extindem cat timp conditia nu e satisfacuta
+    while (r + 1 <= n && sum < S) {
+        sum += a[++r];
+    }
+    // atentie: secventa s-ar putea sa nu fie valida!
+    if (sum >= S) {
+        // secventele valide care incep la l au capatul drept de la r pana la n
+        answer += n - r + 1;
+    }
+    // eliminam a[l]
+    sum -= a[l];
+}
+  \end{lstlisting}
+  \begin{itemize}
+    \item Aici fereastra se extinde \textbf{cât timp proprietatea nu este satisfăcută}; pentru fiecare $l$, primul $r$ valid dă toate capetele $r, r+1, \dots, n$
+    \item Pentru cea mai \textbf{scurtă} secvență cu suma $\ge S$: \texttt{best = min(best, r - l + 1)} în locul adunării
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Șablon two pointers general: proprietate oarecare}
+  \begin{lstlisting}
+// Numarul de secvente cu o proprietate care se pastreaza cand secventa se micsoreaza.
+// Uneori nu e usor de verificat daca secventa + elementul urmator e valida:
+// il adaugam, iar daca strica proprietatea, il scoatem.
+long long answer = 0;
+for (int l = 1, r = 0; l <= n; ++l) {
+    // daca proprietatea e satisfacuta si mai avem un element, extindem
+    while (r + 1 <= n && ok()) {
+        insert(++r);                 // adauga a[r] in structura ferestrei
+    }
+    // s-ar putea sa fi extins cu un element prea mult
+    if (!ok()) {
+        remove(r--);                 // scoate a[r] din structura ferestrei
+    }
+    if (ok()) {
+        answer += r - l + 1;
+    }
+    // eliminam a[l]
+    remove(l);
+}
+  \end{lstlisting}
+  \begin{itemize}
+    \item Codul nu trebuie să fie întotdeauna atât de rigid, dar la probleme complicate se iau în calcul detaliile: secvențele vide, secvențele care nu mai pot fi extinse și totuși nu satisfac proprietatea
+    \item O problemă bună pentru a testa înțelegerea tehnicii: \href{https://kilonova.ro/problems/4262}{\textbf{Mapat}} \source{ONI 2026 cl. VII}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Capete opuse: \href{https://cses.fi/problemset/task/1640}{Sum of Two Values} \source{CSES 1640}}
+  \begin{exampleblock}{Enunț}
+    Se dau $n$ numere și un număr $x$. Să se găsească două poziții \textbf{distincte} $i \ne j$ cu $a_i + a_j = x$ sau să se afișeze \texttt{IMPOSSIBLE}.
+  \end{exampleblock}
+  \begin{itemize}
+    \item Se sortează perechile (valoare, poziție); $l = 0$, $r = n-1$
+    \item $a_l + a_r < x$: $a_l$ nu se potrivește cu niciun element rămas (toate sunt $\le a_r$), deci $l$++
+    \item $a_l + a_r > x$: $a_r$ nu se potrivește cu niciun element rămas (toate sunt $\ge a_l$), deci $r$--
+  \end{itemize}
+  \smallskip
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}cccl@{}}
+    \toprule
+    $l$ & $r$ & $a_l + a_r$ & decizie ($x = 13$, șir sortat $1\ 3\ 4\ 6\ 9\ 11$) \\
+    \midrule
+    0 & 5 & $1 + 11 = 12 < 13$ & $l \to 1$ \\
+    1 & 5 & $3 + 11 = 14 > 13$ & $r \to 4$ \\
+    1 & 4 & $3 + 9 = 12 < 13$ & $l \to 2$ \\
+    2 & 4 & $4 + 9 = 13$ & găsit \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{Capete opuse: implementare}
+  \lstset{lineskip=1pt}
+  \begin{lstlisting}
+vector<pair<long long, int>> v(n);          // (valoare, pozitie)
+for (int i = 0; i < n; i++) {
+    cin >> v[i].first;
+    v[i].second = i + 1;
+}
+sort(v.begin(), v.end());
+
+int l = 0, r = n - 1;
+while (l < r) {
+    long long s = v[l].first + v[r].first;
+    if (s == x) {
+        cout << v[l].second << " " << v[r].second;
+        return 0;
+    }
+    if (s < x) {
+        l++;                  // suma prea mica
+    }
+    else {
+        r--;                  // suma prea mare
+    }
+}
+cout << "IMPOSSIBLE";
+  \end{lstlisting}
+  \begin{itemize}
+    \item Complexitate: $O(n \log n)$ pentru sortare, apoi $O(n)$. Sortarea strică pozițiile, de aceea se păstrează perechea (valoare, poziție); suma se ține în \texttt{long long}
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------ two pointers, probleme ușoare rezolvate
+\begin{frame}{Problemă rezolvată: Palindrom \source{Kilonova, OJI 2023 cl. VII}}
+  \large
+  \begin{exampleblock}{Enunț}
+    Un număr este palindrom dacă se citește la fel în ambele sensuri; poate fi făcut palindrom adăugând cifre la dreapta. Se dau $n$ numere naturale (cel mult $50$ de cifre). \textbf{Cerința 1:} numărul minim de cifre adăugate în total pentru ca toate numerele să devină palindrom. \textbf{Cerința 2:} cu cel mult $S$ cifre adăugate în total, numărul maxim de termeni \emph{consecutivi} care devin palindrom. \textbf{Restricții:} $n \le 5 \cdot 10^4$, $0 \le S \le 5 \cdot 10^5$.
+  \end{exampleblock}
+  \begin{block}{Exemplu}
+    $12232,\ 131,\ 12345,\ 0,\ 7717$ $\Longrightarrow$ cerința 1: $2 + 0 + 4 + 0 + 1 = 7$. Pentru cerința 2, cu $S = 4$ și încă două numere ($1244$, $215809$), răspunsul este $3$: de exemplu $131, 12345, 0$ cu costul $0 + 4 + 0$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Palindrom: rezolvare}
+  \large
+  \begin{itemize}
+    \item $\mathrm{cost}(x)$ = lungimea lui $x$ minus lungimea celui mai lung \textbf{sufix palindrom}: la $12232$, sufixul $232$ este palindrom, deci se adaugă $2$ cifre ($12232\,21$)
+    \item Cerința 1: suma costurilor. Cerința 2: cea mai lungă secvență de termeni consecutivi cu \textbf{suma costurilor} $\le S$; costurile sunt nenegative $\Rightarrow$ fereastră glisantă
+    \item Complexitate $O(n \cdot 50^2)$. Atenție la \textbf{fereastra vidă}: dacă un cost depășește $S$, $r$ nu avansează, iar costul nu se scade din sumă
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Problemă rezolvată: criptografie \source{Kilonova, ONI 2019 cl. VIII}}
+  \large
+  \begin{exampleblock}{Enunț}
+    Se dă un șir de $n$ litere mici și un număr $k$. \textbf{Cerința 1:} să se numere secvențele (litere consecutive) în care fiecare literă apare de \textbf{cel mult $k$ ori}; două secvențe sunt diferite dacă diferă începutul sau sfârșitul. \textbf{Cerința 2} ($k = 1$): cea mai lungă secvență cu litere distincte; la lungime egală, prima în ordine lexicografică. \textbf{Restricții:} $n \le 10^5$.
+  \end{exampleblock}
+  \begin{block}{Exemple}
+    $k = 1$, \texttt{abac} $\Longrightarrow$ $8$: \texttt{a, ab, b, ba, bac, a, ac, c}.\\
+    Cerința 2: \texttt{abacba} $\Longrightarrow$ \texttt{acb} (secvențele \texttt{bac}, \texttt{acb}, \texttt{cba} au lungime maximă $3$).
+  \end{block}
+\end{frame}
+
+\begin{frame}{criptografie: rezolvare}
+  \large
+  \begin{itemize}
+    \item Proprietatea este \textbf{ereditară}: o subsecvență a unei secvențe valide este validă $\Rightarrow$ fereastră glisantă, cu șablonul general
+    \item Se păstrează \texttt{cnt[26]} și \texttt{bad} = numărul de litere care apar de mai mult de $k$ ori; \texttt{ok()} $\Longleftrightarrow$ \texttt{bad == 0}. Cerința 1: $\sum_l (r - l + 1)$
+    \item Cerința 2: aceeași fereastră cu $k = 1$; se păstrează cea mai lungă secvență, iar la lungime egală se compară lexicografic (lungimea este cel mult $26$)
+    \item Fiecare literă intră și iese o singură dată din fereastră $\Rightarrow$ $O(n)$; răspunsul la cerința 1 este de ordinul $n^2$: \texttt{long long}
+  \end{itemize}
+\end{frame}
+
+% ==================================================================
+\section{Căutare binară pe rezultat}
+
+\begin{frame}{Căutare binară pe rezultat: ideea}
+  \begin{itemize}
+    \item Căutarea binară clasică caută o \textbf{poziție} într-un tablou sortat
+    \item Căutarea binară \textbf{pe rezultat} caută direct \textbf{valoarea răspunsului}, fără ca tabloul să existe
+  \end{itemize}
+  \begin{block}{Schema în trei pași}
+    \begin{enumerate}
+      \item Se stabilește intervalul $[st, dr]$ în care se află răspunsul
+      \item Se scrie o funcție $\mathrm{check}(x)$: „se poate rezolva problema cu valoarea $x$?”
+      \item Se verifică faptul că $\mathrm{check}$ este \textbf{monotonă}, apoi se caută pragul: cel mai mare $x$ cu $\mathrm{check}(x)$ adevărat (sau cel mai mic, în varianta simetrică)
+    \end{enumerate}
+  \end{block}
+  \begin{itemize}
+    \item Cuvinte-cheie în enunț: „cel mai mic / cel mai mare $x$ astfel încât\ldots”, „minimizează maximul”, „maximizează minimul”
+  \end{itemize}
+  \beginnote{Știați că? Un număr din $[1, 10^9]$ se ghicește în cel mult $30$ de întrebări „mai mare sau mai mic?”, deoarece $2^{30} > 10^9$. Comanda \texttt{git bisect} aplică aceeași idee pe istoricul commit-urilor: „bun, \ldots, bun, defect, \ldots, defect” este un predicat monoton.}
+\end{frame}
+
+\begin{frame}{Căutare binară: desfășurare}
+  Se caută cel mai mare $x$ cu $\mathrm{check}(x)$ adevărat; aici $\mathrm{check}(x)$ este adevărat exact pentru $x \le 10$. Intervalul necercetat $[st, dr]$ începe cu $[0, 16]$; celula cu margine albastră este $mid$. Dacă $\mathrm{check}(mid)$ este adevărat, $ans = mid$ și $st = mid + 1$; altfel $dr = mid - 1$.
+  \smallskip
+
+  \centering
+  \begin{tikzpicture}
+    \bsrow{0}{0}{16}{8}{$mid=8$: adevărat $\rightarrow$ $ans=8$, $st=9$}
+    \bsrow{1}{9}{16}{12}{$mid=12$: fals $\rightarrow$ $dr=11$}
+    \bsrow{2}{9}{11}{10}{$mid=10$: adevărat $\rightarrow$ $ans=10$, $st=11$}
+    \bsrow{3}{11}{11}{11}{$mid=11$: fals $\rightarrow$ $dr=10$}
+    \bsrow{4}{11}{10}{-1}{$st > dr$: răspuns $ans=10$}
+  \end{tikzpicture}
+
+  \raggedright
+  \textcolor{igGreen}{$\blacksquare$} adevărat (cunoscut) \quad \textcolor{igRed}{$\blacksquare$} fals (cunoscut) \quad $\square$ necunoscut\\
+  Intervalul se înjumătățește la fiecare test: aici $4$ teste pentru $17$ valori; pentru un domeniu de $10^{18}$ valori, circa $60$ de teste.
+\end{frame}
+
+\begin{frame}[fragile]{Șablon}
+  \begin{lstlisting}
+// cel mai mare x pentru care check(x) este adevarat
+int st = ..., dr = ..., ans = ...;
+while (st <= dr) {
+    int mid = (st + dr) / 2;
+    if (check(mid)) {
+        ans = mid;
+        st = mid + 1;
+    }
+    else {
+        dr = mid - 1;
+    }
+}
+  \end{lstlisting}
+  \begin{lstlisting}
+// varianta pentru cel mai mic x pentru care check(x) este adevarat
+    if (check(mid)) {
+        ans = mid;
+        dr = mid - 1;
+    }
+    else {
+        st = mid + 1;
+    }
+  \end{lstlisting}
+  \begin{itemize}
+    \item \texttt{ans} păstrează ultima valoare pentru care \texttt{check} a fost adevărat; $[st, dr]$ este intervalul încă necercetat
+    \item \texttt{lower\_bound(v)}, primul $i$ cu $a[i] \ge v$, este varianta pentru minim cu $\mathrm{check}(i) = (a[i] \ge v)$; \texttt{upper\_bound(v)} folosește $a[i] > v$
+    \item Complexitate: $O(\log V \cdot \mathrm{cost}(\mathrm{check}))$, unde $V = dr - st$
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Detalii care contează}
+  \begin{itemize}
+    \item \textbf{Limitele}: $[st, dr]$ trebuie să conțină răspunsul; se aleg din restricții (de exemplu $st = 1$, $dr = t \cdot \min k_i$ la Factory Machines). Dacă răspunsul poate lipsi, \texttt{ans} pornește de la o valoare care înseamnă „nu există” (de exemplu $-1$)
+    \item \textbf{Overflow}: \texttt{(st + dr) / 2} depășește \texttt{int} când $st + dr > 2^{31}$; se folosește \texttt{long long} sau \texttt{st + (dr - st) / 2}. În \texttt{check} sumele pot depăși limitele, deci se oprește verificarea de îndată ce răspunsul este clar
+    \item \textbf{Terminarea}: după fiecare test, $mid$ iese din interval ($st = mid + 1$ sau $dr = mid - 1$), deci intervalul se micșorează strict; căutarea se oprește când $st > dr$
+    \item \textbf{Numere reale}: condiția $st \le dr$ nu mai are sens; se face un număr fix de iterații (de exemplu $100$) cu $st = mid$ sau $dr = mid$; este metoda bisecției, cunoscută din analiza matematică
+    \item \textbf{Verificarea trebuie să fie rapidă}: de obicei $O(n)$, adesea cu un algoritm greedy; dacă este costisitoare și sunt multe întrebări, se folosește căutarea binară în paralel
+  \end{itemize}
+  \beginnote{Știați că? În 2006, Joshua Bloch a arătat că \texttt{(low + high) / 2} depășește tipul \texttt{int} pentru tablouri foarte mari; eroarea a rămas nedescoperită aproape un deceniu în biblioteca standard Java și în cărți de referință.}
+\end{frame}
+
+% ------------------------------------------------------------------ BS, probleme ușoare rezolvate
+\begin{frame}{Problemă rezolvată: buldo \source{Kilonova, OJI 2020 cl. IX}}
+  \large
+  \begin{exampleblock}{Enunț}
+    Un teren are $N$ zone consecutive, de înălțimi $h_1, \dots, h_N$. Un buldozer alege o înălțime $H$ pentru lamă, pornește fără pământ pe lamă ($C = 0$) și parcurge zonele de la stânga la dreapta: o zonă mai înaltă decât $H$ este tăiată până la $H$ (pământul ajunge pe lamă), una mai joasă este umplută cu pământ de pe lamă, care trebuie să ajungă. Să se afle $H$ \textbf{maxim} cu care terenul poate fi nivelat. \textbf{Restricții:} $1 \le N \le 10^5$, $1 \le h_i \le 10^9$.
+  \end{exampleblock}
+  \begin{block}{Exemplu}
+    $N = 4$, $h = (5, 2, 1, 6)$ $\Longrightarrow$ $2$. La $H = 2$ pământul de pe lamă este $3, 3, 2, 6$. La $H = 3$ este $2, 1$, iar zona $1$ cere $2$ unități: nu ajung.
+  \end{block}
+\end{frame}
+
+\begin{frame}{buldo: rezolvare}
+  \large
+  \begin{itemize}
+    \item $\mathrm{check}(H)$: după fiecare zonă, $C \leftarrow C + (h_i - H)$ și trebuie ca $C \ge 0$; se simulează în $O(N)$. Este \textbf{monotonă}: cu un $H$ mai mic se taie mai mult și se umple mai puțin
+    \item Se caută cel mai mare $H$ cu $\mathrm{check}(H)$ adevărat: șablonul pentru maxim, cu $st = 1$ (mereu posibil, deoarece $h_i \ge 1$) și $dr = 10^9$. Complexitate $O(N \log 10^9)$; $C$ poate ajunge la $10^{14}$: \texttt{long long}
+    \item Condiția $C \ge 0$ înseamnă $h_1 + \dots + h_i \ge i \cdot H$ pentru orice $i$, deci există și o soluție în $O(N)$: $H = \min_i \lfloor (h_1 + \dots + h_i)/i \rfloor$
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Problemă rezolvată: pietricele \source{Kilonova, ONI 2023 cl. IX}}
+  \large
+  \begin{exampleblock}{Enunț}
+    Se dau $n$ pietre în șir, fiecare de un tip (literă mică), iar fiecare tip are o valoare. Pietrele se împart pe $k$ rafturi, fiecare raft fiind o subsecvență nevidă de pietre consecutive; valoarea unui raft este suma valorilor pietrelor. \textbf{Cerința 1:} se maximizează cea mai mare valoare dintre rafturi. \textbf{Cerința 2:} se maximizează cea mai mică valoare dintre rafturi. \textbf{Restricții:} $1 \le k \le n \le 2 \cdot 10^5$, valori în $[1, 10^9]$ (\texttt{long long}).
+  \end{exampleblock}
+  \begin{block}{Exemplu (cerința 2)}
+    \texttt{aabaacabcbaa}, $k = 3$, valorile $a = 1$, $b = 2$, $c = 3$ $\Longrightarrow$ $6$. Rafturile \texttt{aabaa} $(6)$, \texttt{cab} $(6)$, \texttt{cbaa} $(7)$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{pietricele: rezolvare}
+  \large
+  \begin{itemize}
+    \item Cerința 2 este „maximizează minimul”. $\mathrm{check}(x)$: „se pot forma cel puțin $k$ rafturi de valoare $\ge x$?”. Greedy: raftul se închide imediat ce suma atinge $x$, iar restul se alipește ultimului raft. Monotonă: dacă $x$ este posibil, și $x - 1$ este $\Rightarrow$ șablonul pentru maxim, cu $st = 1$ și $dr$ = suma tuturor valorilor
+    \item Cerința 1 nu cere căutare binară: raftul cel mai mare este maxim când celelalte $k - 1$ rafturi au câte o piatră, deci răspunsul este cea mai mare sumă a unei secvențe de lungime $n - k + 1$ (sume parțiale)
+    \item Complexitate $O(n \log \sum v)$; sumele ajung la $2 \cdot 10^{14}$, deci \texttt{long long}
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------ BS, exemplul (varianta pentru minim)
+\begin{frame}{Varianta pentru minim: Factory Machines \source{CSES 1620}}
+  \begin{exampleblock}{Enunț}
+    O fabrică are $n$ utilaje care lucrează simultan; utilajul $i$ produce un produs în $k_i$ secunde. Care este timpul minim în care se pot produce $t$ produse? \textbf{Restricții:} $1 \le n \le 2 \cdot 10^5$, $1 \le t, k_i \le 10^9$.
+  \end{exampleblock}
+  \begin{block}{Exemplu}
+    $n = 3$, $t = 7$, $k = (3, 2, 5)$ \quad $\Longrightarrow$ \quad \texttt{8}\\
+    În $8$ secunde: $\lfloor 8/3 \rfloor + \lfloor 8/2 \rfloor + \lfloor 8/5 \rfloor = 2 + 4 + 1 = 7$; în $7$ secunde: $2 + 3 + 1 = 6 < 7$.
+  \end{block}
+  \begin{itemize}
+    \item Răspunsul este un timp $T$ \textbf{necunoscut}; $\mathrm{check}(T)$: „se pot produce cel puțin $t$ produse în $T$ secunde?”, adică $\displaystyle\sum_{i} \left\lfloor \frac{T}{k_i} \right\rfloor \ge t$. Este \textbf{monotonă}: cu mai mult timp nu se produc mai puține produse; este adevărată de la un prag în sus $\Rightarrow$ șablonul pentru minim
+    \item Limite: $st = 1$ (deoarece $t \ge 1$), $dr = t \cdot \min k_i$ (valid: utilajul cel mai rapid produce singur $t$ produse)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Factory Machines: implementare \textemdash{} $O(n \log (t \cdot \min k_i))$}
+  \begin{lstlisting}
+bool check(long long T) {                 // se pot face t produse in T secunde?
+    long long cnt = 0;
+    for (long long ki : k) {
+        cnt += T / ki;
+        if (cnt >= t) return true;        // oprire anticipata: evita overflow
+    }
+    return false;
+}
+
+long long st = 1, dr = t * *min_element(k.begin(), k.end()), ans = dr;
+while (st <= dr) {
+    long long mid = st + (dr - st) / 2;
+    if (check(mid)) {
+        ans = mid;
+        dr = mid - 1;
+    }
+    else {
+        st = mid + 1;
+    }
+}
+cout << ans;
+  \end{lstlisting}
+  \begin{alertblock}{Overflow}
+    $dr$ poate ajunge la $10^{18}$, iar suma din $\mathrm{check}$ la $2 \cdot 10^{23}$: suma se oprește imediat ce atinge $t$. Complexitatea este de circa $2 \cdot 10^5 \cdot 60$ operații.
+  \end{alertblock}
+\end{frame}
+
+% ==================================================================
+\section{Alte variante}
+
+\begin{frame}[fragile]{Căutare binară prin puteri ale lui 2 și căutare exponențială}
+  \lstset{basicstyle=\ttfamily\footnotesize}
+  \begin{block}{Binary lifting}
+    \begin{itemize}
+      \item În loc de intervalul $[st, dr]$ se ține poziția curentă $x$ și se testează $x + 2^p$ pentru $p$ descrescător; dacă predicatul este încă adevărat, $x$ avansează. Răspunsul se construiește \textbf{bit cu bit}, ca scrierea în baza $2$
+      \item Fără $mid$ și fără intervale; același $O(\log V)$ teste. Folosit la strămoșii dintr-un arbore (LCA, al $k$-lea strămoș) și la căutarea în arbori Fenwick (al $k$-lea element)
+    \end{itemize}
+  \end{block}
+  \begin{lstlisting}
+long long x = st - 1;                     // inaintea domeniului
+for (int p = 60; p >= 0; p--)             // 2^p nu depaseste dr - st
+    if (x + (1LL << p) <= dr && check(x + (1LL << p)))
+        x += 1LL << p;
+// x = cea mai mare valoare cu check adevarat (st - 1 daca nu exista)
+  \end{lstlisting}
+  \begin{block}{Căutare exponențială}
+    Când limita superioară nu se cunoaște, se testează $1, 2, 4, 8, \dots$ cât timp $\mathrm{check}(2^p)$ este adevărat; la primul test fals, răspunsul se află în $[2^{p-1}, 2^p)$ și se face căutare binară pe acest interval. Sunt $O(\log r)$ teste, unde $r$ este răspunsul: eficientă și când răspunsul este mic într-un domeniu uriaș.
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Căutare ternară și căutare binară în paralel}
+  \lstset{basicstyle=\ttfamily\footnotesize}
+  \begin{block}{Căutare ternară}
+    \begin{itemize}
+      \item Pentru o funcție \textbf{unimodală} (crește strict, apoi scade strict) se caută maximul: din $m_1 < m_2$ se elimină o treime; dacă $f(m_1) < f(m_2)$, maximul nu se află în $[l, m_1]$
+      \item Zonele constante strică metoda; pe întregi merge căutarea binară pe $f(m) < f(m+1)$; secțiunea de aur face mai puține evaluări
+    \end{itemize}
+  \end{block}
+  \begin{lstlisting}
+double l = st, r = dr;
+for (int it = 0; it < 100; it++) {
+    double m1 = l + (r - l) / 3, m2 = r - (r - l) / 3;
+    if (f(m1) < f(m2)) l = m1; else r = m2;       // pentru maxim
+}
+  \end{lstlisting}
+  \begin{block}{Căutare binară în paralel}
+    \begin{itemize}
+      \item $Q$ întrebări, fiecare cu propria căutare binară pe „timp” (de exemplu: după câte muchii adăugate sunt $u$ și $v$ conectate), cu o structură incrementală (DSU, Fenwick)
+      \item Căutările rulează simultan: în fiecare rundă întrebările se grupează după $mid$, timpul se parcurge \textbf{o singură dată}, iar la momentul $mid$ se răspunde la teste; după $\lceil \log T \rceil$ runde totul e rezolvat (clasic: Meteors, POI)
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ==================================================================
+\section{Recapitulare și probleme propuse}
+
+\begin{frame}{Recapitulare}
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{@{}p{0.19\textwidth}p{0.34\textwidth}p{0.34\textwidth}@{}}
+    \toprule
+     & \textbf{Two pointers} & \textbf{Căutare binară pe rezultat} \\
+    \midrule
+    \textbf{Se caută} & secvențe, perechi, ferestre & o valoare: cel mai mic / mare $x$ \\
+    \textbf{Monotonie} & $r(l)$ nu scade când $l$ crește & $\mathrm{check}(x)$ trece o singură dată de la fals la adevărat \\
+    \textbf{Se menține} & suma, frecvențele, numărul de valori distincte din fereastră & nimic: $\mathrm{check}$ se reface la fiecare test \\
+    \textbf{Complexitate} & $O(n)$ amortizat & $O(\log V \cdot \mathrm{cost}(\mathrm{check}))$ \\
+    \textbf{Cuvinte-cheie} & „cea mai lungă / scurtă secvență”, „câte secvențe”, perechi cu o sumă dată & „cel mai mic / mare $x$ astfel încât”, „minimizează maximul”, „maximizează minimul” \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Alegerea tehnicii}
+  \begin{enumerate}
+    \item Se caută \textbf{ce este monoton}: ce proprietate trece o singură dată de la fals la adevărat?
+    \item Dacă variabila este \textbf{capătul unei secvențe} și proprietatea se actualizează ușor la mutarea unui capăt $\Rightarrow$ \textbf{two pointers}
+    \item Dacă variabila este \textbf{valoarea răspunsului} și se poate verifica ușor o valoare dată $\Rightarrow$ \textbf{căutare binară pe rezultat}
+    \item Uneori cele două se combină: căutare binară pe valoare, cu two pointers în verificare (de exemplu K-th Sum, la problemele propuse)
+    \item Pentru funcții unimodale $\Rightarrow$ căutare ternară; pentru multe întrebări cu verificare costisitoare $\Rightarrow$ căutare binară în paralel
+  \end{enumerate}
+  \begin{alertblock}{Înainte de a scrie cod}
+    Se verifică monotonia pe un exemplu mic și se stabilesc limitele, tipul de date și complexitatea verificării.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Probleme propuse: ușoare}
+  \large
+  \renewcommand{\arraystretch}{1.5}
+  \centering
+  \begin{tabular}{@{}p{0.4\textwidth}p{0.3\textwidth}l@{}}
+    \toprule
+    \textbf{Problemă} & \textbf{Sursă} & \textbf{Tehnică} \\
+    \midrule
+    \href{https://kilonova.ro/problems/916}{\textbf{buldo}} \textcolor{igMarine}{\small (în lecție)} & \source{Kilonova, OJI 2020 cl. IX} & \textcolor{igMarine}{căutare binară} \\
+    \href{https://kilonova.ro/problems/513}{\textbf{Palindrom}} \textcolor{igMarine}{\small (în lecție)} & \source{Kilonova, OJI 2023 cl. VII} & \textcolor{igMarine}{two pointers} \\
+    \href{https://kilonova.ro/problems/538}{\textbf{pietricele}} \textcolor{igMarine}{\small (în lecție)} & \source{Kilonova, ONI 2023 cl. IX} & \textcolor{igMarine}{căutare binară} \\
+    \href{https://kilonova.ro/problems/1559}{\textbf{criptografie}} \textcolor{igMarine}{\small (în lecție)} & \source{Kilonova, ONI 2019 cl. VIII} & \textcolor{igMarine}{two pointers} \\
+    \href{https://kilonova.ro/problems/1544}{\textbf{amat}} & \source{Kilonova, ONI 2019 cl. IX} & \textcolor{igMarine}{căutare binară} \\
+    \href{https://codeforces.com/problemset/problem/1907/D}{\textbf{Jumping Through Segments}} & \source{Codeforces 1907D} & \textcolor{igMarine}{căutare binară} \\
+    \href{https://codeforces.com/contest/1669/problem/F}{\textbf{Eating Candies}} & \source{Codeforces 1669F} & \textcolor{igMarine}{two pointers} \\
+    \href{https://codeforces.com/contest/2014/problem/C}{\textbf{Robin Hood in Town}} & \source{Codeforces 2014C} & \textcolor{igMarine}{căutare binară} \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Probleme propuse: medii}
+  \large
+  \renewcommand{\arraystretch}{1.28}
+  \centering
+  \begin{tabular}{@{}p{0.34\textwidth}p{0.5\textwidth}@{}}
+    \href{https://kilonova.ro/problems/4262}{\textbf{Mapat}} & \source{Kilonova, ONI 2026 cl. VII} \\
+    \href{https://kilonova.ro/problems/2647}{\textbf{kmajo}} & \source{Kilonova, ONI 2024 cl. VIII} \\
+    \href{https://kilonova.ro/problems/1098}{\textbf{intergalactic}} & \source{Kilonova, ONI 2021 Baraj Juniori} \\
+    \href{https://kilonova.ro/problems/4268}{\textbf{fibopower}} & \source{Kilonova, ONI 2026 Baraj Juniori} \\
+    \href{https://kilonova.ro/problems/635}{\textbf{bossfight}} & \source{Kilonova, Lot 2023 Baraj 2 Juniori} \\
+    \href{https://kilonova.ro/problems/4267}{\textbf{zapada}} & \source{Kilonova, ONI 2026 cl. VIII} \\
+    \href{https://kilonova.ro/problems/2646}{\textbf{geologie}} & \source{Kilonova, ONI 2024 cl. VIII} \\
+    \href{https://cses.fi/problemset/task/2428}{\textbf{Subarray Distinct Values}} & \source{CSES 2428} \\
+    \href{https://cses.fi/problemset/task/1085}{\textbf{Array Division}} & \source{CSES 1085} \\
+    \href{https://codeforces.com/contest/1985/problem/F}{\textbf{Final Boss}} & \source{Codeforces 1985F} \\
+    \href{https://codeforces.com/contest/1795/problem/C}{\textbf{Tea Tasting}} & \source{Codeforces 1795C} \\
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Probleme propuse: grele}
+  \large
+  \renewcommand{\arraystretch}{1.28}
+  \centering
+  \begin{tabular}{@{}p{0.34\textwidth}p{0.5\textwidth}@{}}
+    \href{https://kilonova.ro/problems/4476}{\textbf{Clone}} & \source{Kilonova, Stelele Informaticii 2026} \\
+    \href{https://kilonova.ro/problems/3325}{\textbf{Choose Interval}} & \source{Kilonova, RMI 2024} \\
+    \href{https://kilonova.ro/problems/1836}{\textbf{Pinball}} & \source{Kilonova, RMI 2023} \\
+    \href{https://kilonova.ro/problems/2653}{\textbf{Eras}} & \source{Kilonova, ONI 2024 cl. IX} \\
+    \href{https://kilonova.ro/problems/4458}{\textbf{tactica}} & \source{Kilonova, Lot 2026 Baraj 3 Juniori} \\
+    \href{https://kilonova.ro/problems/620}{\textbf{f1}} & \source{Kilonova, Lot 2023 Baraj 1 Juniori} \\
+    \href{https://codeforces.com/contest/1486/problem/D}{\textbf{Max Median}} & \source{Codeforces 1486D} \\
+    \href{https://codeforces.com/contest/1744/problem/F}{\textbf{MEX vs MED}} & \source{Codeforces 1744F} \\
+    \href{https://codeforces.com/problemset/problem/1475/D}{\textbf{Cleaning the Phone}} & \source{Codeforces 1475D} \\
+    \href{https://codeforces.com/edu/course/2/lesson/6/5/practice/contest/285084/problem/C}{\textbf{K-th Sum}} & \source{Codeforces EDU 6/5} \\
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Resurse și bibliografie}
+  \begin{enumerate}
+    \item \href{https://usaco.guide/silver/binary-search}{\textbf{USACO Guide}} \textemdash{} Binary Search (EN)
+    \item \href{https://usaco.guide/silver/two-pointers}{\textbf{USACO Guide}} \textemdash{} Two Pointers (EN)
+    \item \href{https://cp-algorithms.com/num_methods/binary_search.html}{\textbf{cp-algorithms.com}} \textemdash{} Binary Search, inclusiv căutarea cu puteri ale lui 2 și Parallel Binary Search (EN)
+    \item \href{https://cp-algorithms.com/num_methods/ternary_search.html}{\textbf{cp-algorithms.com}} \textemdash{} Ternary Search (EN)
+    \item \href{https://codeforces.com/edu/course/2/lesson/6/1/practice}{\textbf{Codeforces EDU}} \textemdash{} Binary Search, pașii 1\textendash{}5 (EN)
+    \item \href{https://codeforces.com/edu/course/2/lesson/9}{\textbf{Codeforces EDU}} \textemdash{} Two Pointers Method (EN)
+    \item \href{https://codeforces.com/blog/entry/45578}{\textbf{Codeforces blog}} \textemdash{} Parallel Binary Search [tutorial], himanshujaju (EN)
+    \item \href{https://codeforces.com/blog/entry/143038}{\textbf{Codeforces blog}} \textemdash{} Binary Search on the Answer: A Simple Trick That Wins Many Problems (EN)
+    \item \href{https://cses.fi/book/book.pdf}{\textbf{Competitive Programmer's Handbook}} \textemdash{} A. Laaksonen, capitolul despre sortare și căutare binară (EN)
+  \end{enumerate}
+  \beginnote{Pentru „Știați că?”: J. Bloch, „Extra, Extra \textemdash{} Read All About It: Nearly All Binary Searches and Mergesorts are Broken” (2006).}
+\end{frame}
+
+\end{document}
