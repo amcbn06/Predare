@@ -1,72 +1,142 @@
-﻿\documentclass{beamer}
-\usetheme{metropolis}
-\usepackage{../../../resources/style}
+% ================================================================
+% O singură sursă, două PDF-uri (compilează fiecare de două ori):
+%
+%   La clasă (interactiv, soluția se dezvăluie pe bucăți):
+%     pdflatex -jobname=lesson-interactive lesson.tex
+%
+%   Compact (toți pașii într-un singur slide, pentru elevi / README):
+%     pdflatex -jobname=lesson "\PassOptionsToClass{handout}{beamer}\input{lesson.tex}"
+% ================================================================
+\documentclass[9pt]{beamer}
+\usepackage{theme-sorting}
 
-\newcommand{\beginnote}[1]{%
-  \vfill
-  {\footnotesize\textcolor{gray}{\textit{$\triangleright$ #1 (vezi slide-ul \emph{Resurse})}}}%
+% Mod interactiv: întrebarea apare prima, apoi soluția se dezvăluie pe bucăți
+% (\item<2->, \uncover<3->{...}, \begin{remarca}<4->{Concluzie}); hint-ul se
+% folosește doar unde elevii chiar trebuie împinși să se gândească.
+% Totul se afișează cumulativ: ce apare la pasul 2 rămâne vizibil după.
+\newenvironment<>{intrebare}{%
+  \begin{uncoverenv}#1%
+  \begin{block}{Întrebare}}{\end{block}\end{uncoverenv}}
+% Hint și remarcă: text inline cu etichetă emerald, fără cutie
+\newenvironment<>{hint}{%
+  \begin{uncoverenv}#1%
+  \par\textcolor{igMarine}{\textbf{Hint:}}\ }{\par\end{uncoverenv}}
+\newenvironment<>{remarca}[1]{%
+  \begin{uncoverenv}#2%
+  \par\smallskip\textcolor{igMarine}{\textbf{#1:}}\ }{\par\end{uncoverenv}}
+
+% Celulă de tabel vizibilă de la pasul #1
+\newcommand{\at}[2]{\uncover<#1->{#2}}
+
+% Diagrame cu tablouri: celulă normală (N), comparată / interschimbată (H),
+% la locul definitiv (S), minim sau element inserat (M)
+\tikzset{
+  cN/.style={draw=igNavy!55,fill=white,minimum size=0.62cm,inner sep=0pt,font=\small},
+  cH/.style={cN,fill=igBlue!22,draw=igBlue,thick},
+  cS/.style={cN,fill=igSlate!26},
+  cM/.style={cN,fill=igOchre!32,draw=igOchre,thick}
 }
+% \arow{y}{valoare/stil, ...}{text}  (5 elemente)
+\newcommand{\arow}[3]{%
+  \foreach \v/\t [count=\i from 0] in {#2} {\node[c\t] at (\i*0.68,#1) {\v};}%
+  \node[anchor=west,font=\footnotesize] at (5*0.68-0.25,#1) {#3};}
 
 \title{Algoritmi de sortare}
 \subtitle{Bubble $\cdot$ Selection $\cdot$ Insertion $\cdot$ STL $\cdot$ Counting Sort}
-\author{Andrei Mihai Ciobanu}
-\institute{Algolymp Summer School}
+\author[A. M. Ciobanu]{Andrei Mihai Ciobanu}
+\institute[Algolymp]{Algolymp Summer School}
 \date{}
-\titlegraphic{\includegraphics[width=4cm]{../../../resources/algolymp-logo.png}}
-\setbeamertemplate{frame footer}{Algolymp Summer School}
-
-% ----------------------------------------------------------------
-\begin{document}
-
-\begin{frame}
-  \titlepage
-\end{frame}
-
-\begin{frame}{Cuprins}
-  \tableofcontents
-\end{frame}
+\titlegraphic{\includegraphics[width=3cm]{../../../resources/algolymp-logo.png}}
 
 % ================================================================
-\section{De ce sortăm?}
+\begin{document}
 
-\begin{frame}{De ce sortăm?}
+\igtitleslide
+
+% ================================================================
+\section{Problema sortării}
+
+\begin{frame}{Rolul sortării}
   Sortarea este una dintre cele mai frecvente operații în programare.
-  \bigskip
   \begin{itemize}
-    \item Căutarea binară necesită un șir sortat
-    \item Multe probleme devin triviale după sortare \\
-          (ex: al $k$-lea cel mai mare element, perechi cu suma dată)
-    \item Date reale: liste de note, clasamente, ierarhii
+    \item Căutarea rapidă a unui element necesită un șir sortat (tehnică studiată în lecția următoare)
+    \item Multe probleme devin simple după sortare: al $k$-lea cel mai mare element, perechi cu suma dată, eliminarea duplicatelor
+    \item Date reale: clasamente, liste de note, ierarhii
   \end{itemize}
-  \bigskip
   \begin{block}{Problema sortării}
     Dat un vector $v[0..n-1]$, să se rearanjeze elementele astfel încât
     $v[0] \leq v[1] \leq \ldots \leq v[n-1]$.
   \end{block}
+  \begin{intrebare}<2->
+    Cum se verifică dacă un șir de $n$ numere conține două elemente egale, dacă șirul este nesortat, respectiv sortat?
+  \end{intrebare}
+  \uncover<3->{Nesortat: se compară toate perechile, deci circa $\frac{n(n-1)}{2}$ comparații. Sortat: elementele egale sunt adiacente, deci este suficientă o singură parcurgere, cu $n-1$ comparații.}
+\end{frame}
+
+\begin{frame}{Inversiuni}
+  O \textbf{inversiune} este o pereche de poziții $i < j$ cu $v[i] > v[j]$.
+  \begin{intrebare}
+    Câte inversiuni are șirul $[5,\ 3,\ 8,\ 1,\ 4]$?
+  \end{intrebare}
+  \begin{hint}<2->
+    Se numără, pentru fiecare element, valorile mai mici aflate în dreapta lui.
+  \end{hint}
+  \begin{itemize}
+    \item<3-> $5$: $(5,3),\ (5,1),\ (5,4)$ \quad $\rightarrow$ 3 inversiuni
+    \item<3-> $3$: $(3,1)$ \quad $\rightarrow$ 1 inversiune
+    \item<3-> $8$: $(8,1),\ (8,4)$ \quad $\rightarrow$ 2 inversiuni
+    \item<3-> $1$ și $4$: nicio inversiune \quad $\Rightarrow$ \textbf{6 inversiuni} în total
+  \end{itemize}
+  \begin{remarca}<4->{Legătura cu sortarea}
+    Un șir este sortat dacă și numai dacă nu are inversiuni. Interschimbarea a două elemente \textbf{adiacente} aflate în ordine greșită elimină exact o inversiune, iar numărul maxim de inversiuni este $\frac{n(n-1)}{2}$ (șir descrescător).
+  \end{remarca}
 \end{frame}
 
 % ================================================================
 \section{Bubble Sort}
 
-\begin{frame}{Bubble Sort \textemdash{} Idee}
-  \textbf{Idee:} la fiecare pas, comparăm perechi de elemente adiacente și le schimbăm dacă sunt în ordinea greșită.
-  \bigskip
-
-  Exemplu: $[5,\ 3,\ 8,\ 1,\ 4]$
-  \begin{itemize}
-    \item Pasul 1: $[\textcolor{red}{\mathbf{3}}, \textcolor{red}{\mathbf{5}}, 8, 1, 4]\ \rightarrow\ [3, 5, \textcolor{red}{\mathbf{1}}, \textcolor{red}{\mathbf{8}}, 4]\ \rightarrow\ [3, 5, 1, \textcolor{red}{\mathbf{4}}, \textcolor{red}{\mathbf{8}}]$
-    \item Pasul 2: $[3, \textcolor{red}{\mathbf{1}}, \textcolor{red}{\mathbf{5}}, 4, 8]\ \rightarrow\ [3, 1, \textcolor{red}{\mathbf{4}}, \textcolor{red}{\mathbf{5}}, 8]$
-    \item Pasul 3: $[\textcolor{red}{\mathbf{1}}, \textcolor{red}{\mathbf{3}}, 4, 5, 8]$
-    \item Pasul 4: sortat \checkmark
-  \end{itemize}
-  \medskip
-  După pasul $i$, ultimele $i$ elemente sunt la locul lor definitiv.
+\begin{frame}{Bubble Sort \textemdash{} idee}
+  Se compară perechile de elemente adiacente, iar elementele aflate în ordine greșită se interschimbă.
+  \begin{intrebare}
+    Ce se întâmplă cu cel mai mare element după o parcurgere completă, de la stânga la dreapta, a șirului $[5,\ 3,\ 8,\ 1,\ 4]$?
+  \end{intrebare}
+  \begin{center}
+  \begin{tikzpicture}
+    \uncover<2->{\arow{0}{5/N,3/N,8/N,1/N,4/N}{șirul inițial}}
+    \uncover<3->{\arow{-0.7}{3/H,5/H,8/N,1/N,4/N}{$5 > 3$: se interschimbă}}
+    \uncover<4->{\arow{-1.4}{3/N,5/H,8/H,1/N,4/N}{$5 < 8$: rămân pe loc}}
+    \uncover<5->{\arow{-2.1}{3/N,5/N,1/H,8/H,4/N}{$8 > 1$: se interschimbă}}
+    \uncover<6->{\arow{-2.8}{3/N,5/N,1/N,4/H,8/H}{$8 > 4$: se interschimbă}}
+    \uncover<7->{\arow{-3.5}{3/N,5/N,1/N,4/N,8/S}{sfârșitul pasului 1}}
+  \end{tikzpicture}
+  \end{center}
+  \begin{remarca}<7->{Concluzie}
+    După pasul $1$, cel mai mare element se află pe ultima poziție, la locul său definitiv.
+  \end{remarca}
+  \beginnote{Vizualizare pas cu pas: \href{https://visualgo.net/en/sorting}{visualgo.net/en/sorting}}
 \end{frame}
 
-\begin{frame}[fragile]{Bubble Sort \textemdash{} Implementare}
+\begin{frame}{Bubble Sort \textemdash{} pașii următori}
+  După pasul $i$, ultimele $i$ elemente sunt la locul lor definitiv, deci pasul $i+1$ nu mai ajunge la ele.
+  \begin{center}
+  \begin{tikzpicture}
+    \arow{0}{3/N,5/N,1/N,4/N,8/S}{după pasul 1 \ (3 interschimbări)}
+    \uncover<2->{\arow{-0.7}{3/N,1/N,4/N,5/S,8/S}{după pasul 2 \ (2 interschimbări)}}
+    \uncover<3->{\arow{-1.4}{1/S,3/S,4/S,5/S,8/S}{după pasul 3 \ (1 interschimbare)}}
+  \end{tikzpicture}
+  \end{center}
+  \begin{intrebare}<4->
+    Câte interschimbări a făcut algoritmul în total și ce legătură are numărul cu inversiunile șirului inițial?
+  \end{intrebare}
+  \uncover<5->{$3 + 2 + 1 = 6$ interschimbări, adică exact cele $6$ inversiuni ale șirului $[5, 3, 8, 1, 4]$.}
+  \begin{itemize}
+    \item<6-> Pasul $4$ nu mai modifică nimic: pentru $n$ elemente sunt necesari cel mult $n-1$ pași
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Bubble Sort \textemdash{} implementare}
   \begin{lstlisting}
-void bubbleSort(vector<int>& v) {
-    int n = v.size();
+void bubbleSort(int v[], int n) {
     for (int i = 0; i < n - 1; i++) {
         for (int j = 0; j < n - 1 - i; j++) {
             if (v[j] > v[j + 1]) {
@@ -78,99 +148,121 @@ void bubbleSort(vector<int>& v) {
   \end{lstlisting}
   \begin{itemize}
     \item Bucla exterioară: $n-1$ pași
-    \item Bucla interioară: la pasul $i$ facem $n-1-i$ comparații
+    \item Bucla interioară: la pasul $i$ se fac $n-1-i$ comparații
     \item Total comparații: $(n-1) + (n-2) + \ldots + 1 = \frac{n(n-1)}{2}$
   \end{itemize}
+  \begin{intrebare}<2->
+    De ce bucla interioară se oprește la $n-1-i$, nu la $n-1$?
+  \end{intrebare}
+  \uncover<3->{Ultimele $i$ elemente sunt deja la locul lor, deci nu mai este nevoie să fie comparate.}
+  \beginnote{swap \textemdash{} funcție din STL, interschimbă valorile a două variabile}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Bubble Sort \textemdash{} Optimizare și Complexitate}
-  \textbf{Optimizare:} repetăm etapa de corectare a inversiunilor până când nu mai are loc nicio inversare.
-  \begin{lstlisting}
-void bubbleSort(vector<int>& v) {
-    int n = v.size();
-    bool ok = true; // exista inversiuni
+\begin{frame}[fragile]{Bubble Sort \textemdash{} optimizare și complexitate}
+  \begin{intrebare}
+    Ce complexitate are algoritmul de mai sus pe un șir deja sortat?
+  \end{intrebare}
+  \uncover<2->{
+    $O(n^2)$: comparațiile se fac oricum. Algoritmul se poate opri imediat ce o parcurgere completă nu mai găsește nicio inversare.}
+  \begin{uncoverenv}<3->
+    \begin{lstlisting}
+void bubbleSort(int v[], int n) {
+    bool ok = true;            // exista inversiuni
     while (ok) {
-        ok = false; // presupunem ca nu mai sunt
+        ok = false;            // presupunem ca nu mai sunt
         for (int j = 0; j < n - 1; j++) {
             if (v[j] > v[j + 1]) {
                 swap(v[j], v[j + 1]);
-                ok = true; // am gasit o inversiune
+                ok = true;     // am gasit o inversiune
             }
         }
     }
 }
-  \end{lstlisting}
+    \end{lstlisting}
+  \end{uncoverenv}
   \begin{itemize}
-    \item \textbf{Best case} (deja sortat): $O(n)$ \textemdash{} un singur pas, nicio inversare
-    \item \textbf{Worst case} (sortat invers): $O(n^2)$
-    \item \textbf{Average case}: $O(n^2)$
+    \item<4-> \textbf{Best case} (șir sortat): $O(n)$ \textemdash{} o singură parcurgere, nicio inversare
+    \item<4-> \textbf{Worst case} (șir sortat invers) și \textbf{average case}: $O(n^2)$
   \end{itemize}
 \end{frame}
 
 % ================================================================
 \section{Selection Sort}
 
-\begin{frame}{Selection Sort \textemdash{} Idee}
-  \textbf{Idee:} la fiecare pas, găsim minimul din partea nesortată și îl aducem la începutul ei.
-  \bigskip
-
-  Exemplu: $[5,\ 3,\ 8,\ 1,\ 4]$
-  \begin{itemize}
-    \item Pasul 0: min $= \textcolor{red}{\mathbf{1}}$ $\rightarrow$ swap: $[\textcolor{red}{\mathbf{1}},\ 3,\ 8,\ \textcolor{red}{\mathbf{5}},\ 4]$
-    \item Pasul 1: min $= \textcolor{red}{\mathbf{3}}$, deja la loc: $[1,\ \textcolor{red}{\mathbf{3}},\ 8,\ 5,\ 4]$
-    \item Pasul 2: min $= \textcolor{red}{\mathbf{4}}$ $\rightarrow$ swap: $[1,\ 3,\ \textcolor{red}{\mathbf{4}},\ 5,\ \textcolor{red}{\mathbf{8}}]$
-    \item Pasul 3: min $= \textcolor{red}{\mathbf{5}}$, deja la loc: $[1,\ 3,\ 4,\ \textcolor{red}{\mathbf{5}},\ 8]$
-    \item Pasul 4: sortat \checkmark
-  \end{itemize}
-  \medskip
-  După pasul $i$, primele $i+1$ elemente sunt la locul lor definitiv.
+\begin{frame}{Selection Sort \textemdash{} idee}
+  La fiecare pas se găsește minimul din partea nesortată și se aduce pe prima poziție a acesteia.
+  \begin{intrebare}
+    Cum se sortează șirul $[5,\ 3,\ 8,\ 1,\ 4]$ prin alegerea repetată a minimului?
+  \end{intrebare}
+  \begin{center}
+  \begin{tikzpicture}
+    \uncover<2->{\arow{0}{5/H,3/N,8/N,1/M,4/N}{minim $1$ $\rightarrow$ se interschimbă cu poziția 0}}
+    \uncover<3->{\arow{-0.7}{1/S,3/M,8/N,5/N,4/N}{minim $3$, deja la locul lui}}
+    \uncover<4->{\arow{-1.4}{1/S,3/S,8/H,5/N,4/M}{minim $4$ $\rightarrow$ se interschimbă cu poziția 2}}
+    \uncover<5->{\arow{-2.1}{1/S,3/S,4/S,5/M,8/N}{minim $5$, deja la locul lui}}
+    \uncover<6->{\arow{-2.8}{1/S,3/S,4/S,5/S,8/S}{șir sortat}}
+  \end{tikzpicture}
+  \end{center}
+  \begin{remarca}<6->{Concluzie}
+    După pasul $i$, primele $i+1$ elemente sunt la locul lor definitiv.
+  \end{remarca}
+  \beginnote{Vizualizare pas cu pas: \href{https://visualgo.net/en/sorting}{visualgo.net/en/sorting}}
 \end{frame}
 
-\begin{frame}[fragile]{Selection Sort \textemdash{} Implementare}
+\begin{frame}[fragile]{Selection Sort \textemdash{} implementare}
   \begin{lstlisting}
-void selectionSort(vector<int>& v) {
-    int n = v.size();
+void selectionSort(int v[], int n) {
     for (int i = 0; i < n - 1; i++) {
+        int pozMin = i;                  // pozitia minimului din v[i..n-1]
         for (int j = i + 1; j < n; j++) {
-            if (v[j] < v[i]) {
-                swap(v[i], v[j]);
+            if (v[j] < v[pozMin]) {
+                pozMin = j;
             }
         }
+        swap(v[i], v[pozMin]);
     }
 }
   \end{lstlisting}
   \begin{itemize}
-    \item \textbf{Best case}: $O(n^2)$ \textemdash{} mereu facem $\tfrac{n(n-1)}{2}$ comparații
-    \item \textbf{Worst case}: $O(n^2)$
-    \item \textbf{Average case}: $O(n^2)$
+    \item \textbf{Best, worst și average case}: $O(n^2)$ \textemdash{} mereu se fac $\frac{n(n-1)}{2}$ comparații
+    \item Se fac cel mult $n-1$ interschimbări (câte una pe pas), mai puține decât la Bubble Sort
   \end{itemize}
+  \begin{intrebare}<2->
+    Ce complexitate are algoritmul pe un șir deja sortat?
+  \end{intrebare}
+  \uncover<3->{Tot $O(n^2)$: minimul se caută oricum în toată partea nesortată.}
+  \beginnote{swap \textemdash{} funcție din STL, interschimbă valorile a două variabile}
 \end{frame}
 
 % ================================================================
 \section{Insertion Sort}
 
-\begin{frame}{Insertion Sort \textemdash{} Idee}
-  \textbf{Idee:} construim un prefix sortat, inserând pe rând fiecare element la locul potrivit.
-  \bigskip
-
-  Exemplu: $[5,\ 3,\ 8,\ 1,\ 4]$ \quad ($|$ = limita prefix sortat)
-  \begin{itemize}
-    \item $[5\ |\ 3,\ 8,\ 1,\ 4]$: inserăm $\textcolor{red}{\mathbf{3}}$ $\rightarrow$ $[3,\ 5\ |\ 8,\ 1,\ 4]$
-    \item $[3,\ 5\ |\ 8,\ 1,\ 4]$: inserăm $\textcolor{red}{\mathbf{8}}$ $\rightarrow$ $[3,\ 5,\ 8\ |\ 1,\ 4]$
-    \item $[3,\ 5,\ 8\ |\ 1,\ 4]$: inserăm $\textcolor{red}{\mathbf{1}}$ $\rightarrow$ $[1,\ 3,\ 5,\ 8\ |\ 4]$
-    \item $[1,\ 3,\ 5,\ 8\ |\ 4]$: inserăm $\textcolor{red}{\mathbf{4}}$ $\rightarrow$ $[1,\ 3,\ 4,\ 5,\ 8]$ \checkmark
-  \end{itemize}
-  \medskip
-  Elementul inserat este mutat la stânga cât timp e mai mic decât vecinul său.
+\begin{frame}{Insertion Sort \textemdash{} idee}
+  Se construiește un prefix sortat, iar fiecare element nou este inserat la locul potrivit în acest prefix.
+  \begin{intrebare}
+    Cum se extinde un prefix sortat cu încă un element, fără a sorta din nou tot prefixul?
+  \end{intrebare}
+  \begin{center}
+  \begin{tikzpicture}
+    \uncover<2->{\arow{0}{5/S,3/M,8/N,1/N,4/N}{se inserează $3$ $\rightarrow$ $[3, 5]$}}
+    \uncover<3->{\arow{-0.7}{3/S,5/S,8/M,1/N,4/N}{se inserează $8$ \textemdash{} rămâne pe loc}}
+    \uncover<4->{\arow{-1.4}{3/S,5/S,8/S,1/M,4/N}{se inserează $1$ $\rightarrow$ ajunge la început}}
+    \uncover<5->{\arow{-2.1}{1/S,3/S,5/S,8/S,4/M}{se inserează $4$ $\rightarrow$ între $3$ și $5$}}
+    \uncover<6->{\arow{-2.8}{1/S,3/S,4/S,5/S,8/S}{șir sortat}}
+  \end{tikzpicture}
+  \end{center}
+  \begin{remarca}<6->{Concluzie}
+    Elementul inserat este mutat spre stânga cât timp este mai mic decât vecinul său.
+  \end{remarca}
+  \beginnote{Vizualizare pas cu pas: \href{https://visualgo.net/en/sorting}{visualgo.net/en/sorting}}
 \end{frame}
 
-\begin{frame}[fragile]{Insertion Sort \textemdash{} Implementare}
+\begin{frame}[fragile]{Insertion Sort \textemdash{} implementare}
   \begin{lstlisting}
-void insertionSort(vector<int>& v) {
-    int n = v.size();
+void insertionSort(int v[], int n) {
     for (int i = 1; i < n; i++) {
         int j = i;
-        while (j >= 0 && v[j - 1] > v[j]) {
+        while (j > 0 && v[j - 1] > v[j]) {
             swap(v[j - 1], v[j]);
             j--;
         }
@@ -178,124 +270,177 @@ void insertionSort(vector<int>& v) {
 }
   \end{lstlisting}
   \begin{itemize}
-    \item \textbf{Best case} (deja sortat): $O(n)$ \textemdash{} nicio deplasare
-    \item \textbf{Worst case} (sortat invers): $O(n^2)$
-    \item \textbf{Average case}: $O(n^2)$
+    \item \textbf{Best case} (șir sortat): $O(n)$ \textemdash{} nicio deplasare
+    \item \textbf{Worst case} (șir sortat invers) și \textbf{average case}: $O(n^2)$
+  \end{itemize}
+  \begin{intrebare}<2->
+    De ce condiția buclei conține $j > 0$?
+  \end{intrebare}
+  \uncover<3->{Fără ea, pentru $j = 0$ s-ar accesa $v[-1]$, adică în afara tabloului.}
+  \beginnote{swap \textemdash{} funcție din STL, interschimbă valorile a două variabile}
+\end{frame}
+
+\begin{frame}{Cele trei metode pătratice}
+  \begin{intrebare}
+    Care dintre cele trei metode face cele mai puține interschimbări și care se comportă bine pe un șir aproape sortat?
+  \end{intrebare}
+  \uncover<2->{
+  \begin{center}
+  \begin{tabular}{lccc}
+    \toprule
+    Algoritm & Best case & Worst case & Interschimbări \\
+    \midrule
+    Bubble Sort (optimizat) & $O(n)$   & $O(n^2)$ & \at{2}{egal cu numărul de inversiuni} \\
+    Selection Sort          & $O(n^2)$ & $O(n^2)$ & \at{2}{cel mult $n-1$} \\
+    Insertion Sort          & $O(n)$   & $O(n^2)$ & \at{2}{egal cu numărul de inversiuni} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}}
+  \begin{itemize}
+    \item<3-> \textbf{Selection Sort} face cele mai puține interschimbări
+    \item<3-> \textbf{Insertion Sort} este eficient pe șiruri aproape sortate: timpul depinde de numărul de inversiuni
   \end{itemize}
 \end{frame}
 
 % ================================================================
 \section{STL sort}
 
-\begin{frame}[fragile, shrink]{STL sort \textemdash{} Utilizare de bază}
-  C++ oferă \lstinline|std::sort| în header-ul \lstinline|<algorithm>|.
-  Complexitate acestuia este $O(n \log n)$.
-  \begin{lstlisting}
+\begin{frame}[fragile]{STL sort \textemdash{} utilizare de bază}
+  C++ oferă funcția \lstinline|sort| din header-ul \lstinline|<algorithm>|, cu complexitate $O(n \log n)$.
+  \begin{intrebare}
+    Cum se sortează un tablou $v$ cu $n$ elemente crescător, respectiv descrescător?
+  \end{intrebare}
+  \begin{uncoverenv}<2->
+    \begin{lstlisting}
 #include <algorithm>
-#include <vector>
 using namespace std;
 
-vector<int> v = {5, 3, 8, 1, 4};
+int v[] = {5, 3, 8, 1, 4};
+int n = 5;
 
-// Sortare crescatoare (implicit)
-sort(v.begin(), v.end());
-// v = {1, 3, 4, 5, 8}
+sort(v, v + n);                    // crescator: 1 3 4 5 8
+sort(v, v + n, greater<int>());    // descrescator: 8 5 4 3 1
+sort(v + l, v + r + 1);            // doar pozitiile l..r
 
-// Sortare descrescatoare
-sort(v.begin(), v.end(), greater<int>());
-// v = {8, 5, 4, 3, 1}
+vector<int> w = {5, 3, 8, 1, 4};
+sort(w.begin(), w.end());          // pentru vector
+    \end{lstlisting}
+  \end{uncoverenv}
+  \beginnote{vector, begin, end, greater \textemdash{} din STL}
+\end{frame}
 
-// Sortare pe un subarray [l, r]
-sort(v.begin() + l, v.begin() + r + 1);
-  \end{lstlisting}
-  \beginnote{vector, begin, end \textemdash{} din STL}
-  \end{frame}
-
-\begin{frame}[fragile, shrink]{STL sort \textemdash{} Comparatori custom}
-  Putem sorta după orice criteriu printr-o funcție de comparare.
-  \begin{lstlisting}
-// Sortare dupa valoare absoluta
+\begin{frame}[fragile]{STL sort \textemdash{} comparatori}
+  Criteriul de sortare poate fi schimbat printr-o \textbf{funcție de comparare}, care întoarce \lstinline|true| dacă primul argument trebuie să apară înaintea celui de-al doilea.
+  \begin{intrebare}
+    Cum se sortează numerele după valoarea absolută?
+  \end{intrebare}
+  \begin{uncoverenv}<2->
+    \begin{lstlisting}
 bool cmpAbs(int a, int b) {
     return abs(a) < abs(b);
 }
 
-sort(v.begin(), v.end(), cmpAbs);
-
-vector<pair<int, int>> pv{ { 1, 2 }, { 1, 3 }, { 2, 1 } };
-
-// Sortare perechi: crescator dupa primul element,
-// in caz de egalitate descrescator dupa al doilea
-bool cmpPair(pair<int,int> a, pair<int,int> b) {
+sort(v, v + n, cmpAbs);
+    \end{lstlisting}
+  \end{uncoverenv}
+  \begin{uncoverenv}<3->
+    Pentru perechi: crescător după primul element, iar la egalitate descrescător după al doilea.
+    \begin{lstlisting}
+bool cmpPair(pair<int, int> a, pair<int, int> b) {
     if (a.first != b.first)
         return a.first < b.first;
     return a.second > b.second;
 }
 
-sort(pv.begin(), pv.end(), cmpPair);
-  \end{lstlisting}
+sort(pv, pv + m, cmpPair);   // pv: tablou de pair<int, int>
+    \end{lstlisting}
+  \end{uncoverenv}
   \beginnote{pair, abs \textemdash{} din STL}
+\end{frame}
+
+\begin{frame}[fragile]{STL sort \textemdash{} reguli pentru comparatori}
+  \begin{intrebare}
+    Ce poate face \lstinline|sort| dacă un comparator întoarce \lstinline|true| și pentru două elemente egale, de exemplu \lstinline|return a <= b;|?
+  \end{intrebare}
+  \uncover<2->{Comportament nedefinit: programul poate da rezultate greșite sau se poate opri cu eroare (acces în afara tabloului).}
+  \begin{block}<3->{Reguli pentru un comparator corect}
+    \begin{itemize}
+      \item \lstinline|cmp(a, a)| trebuie să întoarcă \lstinline|false|: se folosesc \lstinline|<| și \lstinline|>|, niciodată \lstinline|<=| sau \lstinline|>=|
+      \item dacă \lstinline|cmp(a, b)| este \lstinline|true|, atunci \lstinline|cmp(b, a)| trebuie să fie \lstinline|false|
+      \item relația trebuie să fie tranzitivă: din \lstinline|cmp(a, b)| și \lstinline|cmp(b, c)| rezultă \lstinline|cmp(a, c)|
+    \end{itemize}
+  \end{block}
+  \begin{itemize}
+    \item<4-> \lstinline|sort| nu garantează ordinea relativă a elementelor egale; \lstinline|stable_sort| o păstrează (sortare \textbf{stabilă})
+  \end{itemize}
 \end{frame}
 
 % ================================================================
 \section{Counting Sort}
 
-\begin{frame}{Counting Sort \textemdash{} Idee}
-  \textbf{Idee:} nu comparăm elementele \textemdash{} numărăm de câte ori apare fiecare valoare, apoi reconstruim șirul.
-
-  \bigskip
-  \textbf{Condiție:} valorile sunt întregi dintr-un interval $[0, k]$ cu $k$ rezonabil de mic.
-
-  \bigskip
-  Exemplu: $v = [3, 1, 4, 1, 5, 3, 3]$, $k = 5$
-  \begin{center}
-  \begin{tabular}{ccccccc}
-    \toprule
-    Valoare & 0 & 1 & 2 & 3 & 4 & 5 \\
-    \midrule
-    Count   & 0 & 2 & 0 & 3 & 1 & 1 \\
-    \bottomrule
-  \end{tabular}
-  \end{center}
-  \medskip
-  Rezultat: $[1, 1, 3, 3, 3, 4, 5]$
+\begin{frame}{Counting Sort \textemdash{} idee}
+  Elementele nu se compară între ele: se numără de câte ori apare fiecare valoare, apoi șirul se reconstruiește.
+  \begin{intrebare}
+    Cum se poate sorta șirul $v = [3,\ 1,\ 4,\ 1,\ 5,\ 3,\ 3]$ cu valori în intervalul $[0, 5]$, fără nicio comparație între elemente?
+  \end{intrebare}
+  \begin{hint}<2->
+    Valorile sunt numere mici: pot fi folosite ca indici într-un tablou de contoare.
+  \end{hint}
+  \uncover<3->{
+    \begin{center}
+    \begin{tabular}{ccccccc}
+      \toprule
+      Valoare & 0 & 1 & 2 & 3 & 4 & 5 \\
+      \midrule
+      Contor & 0 & \at{4}{2} & 0 & \at{4}{3} & \at{4}{1} & \at{4}{1} \\
+      \bottomrule
+    \end{tabular}
+    \end{center}}
+  \begin{remarca}<5->{Rezultat}
+    Fiecare valoare se scrie de câte ori apare: $[1, 1, 3, 3, 3, 4, 5]$.
+  \end{remarca}
+  \beginnote{Vizualizare pas cu pas: \href{https://visualgo.net/en/sorting}{visualgo.net/en/sorting}}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Counting Sort \textemdash{} Implementare}
+\begin{frame}[fragile]{Counting Sort \textemdash{} implementare}
   \begin{lstlisting}
-void countingSort(vector<int>& v) {
-    // Numaram aparitiile fiecarei valori
-    int n = v.size();
-    int maxVal = *max_element(v.begin(), v.end());
-    vector<int> cnt(maxVal + 1, 0);
+const int MAXV = 1000000;
+int cnt[MAXV + 1];                    // contoarele, initial 0
+
+void countingSort(int v[], int n) {
+    int maxVal = 0;
     for (int i = 0; i < n; i++) {
-        cnt[v[i]]++;
+        cnt[v[i]]++;                  // numaram aparitiile
+        if (v[i] > maxVal) maxVal = v[i];
     }
-    // Reconstruim vectorul sortat
-    int idx = 0;
+    int idx = 0;                      // reconstruim sirul sortat
     for (int val = 0; val <= maxVal; val++) {
         for (int i = 0; i < cnt[val]; i++) {
             v[idx++] = val;
         }
+        cnt[val] = 0;                 // contoarele raman 0 pentru apelul urmator
     }
 }
   \end{lstlisting}
   \begin{itemize}
-    \item Total: $O(n + k)$ \textemdash{} $n$ pentru numărare, $k$ pentru parcurgerea valorilor posibile
+    \item Complexitate $O(n + k)$: $n$ pentru numărare, $k$ pentru parcurgerea valorilor posibile
   \end{itemize}
-  \beginnote{\texttt{max\_element} \textemdash{} din STL}
 \end{frame}
 
-\begin{frame}{Counting Sort \textemdash{} Limitări}
-  \begin{block}{Când funcționează}
+\begin{frame}{Counting Sort \textemdash{} limitări}
+  \begin{intrebare}
+    În ce situații Counting Sort nu este potrivit?
+  \end{intrebare}
+  \begin{block}<2->{Când funcționează}
     \begin{itemize}
       \item Valori întregi nenegative
-      \item $k$ mic (ex: note 1\textendash{}10, vârste 0\textendash{}150, valori $\leq 10^6$)
+      \item $k$ mic (de exemplu note $1$\textendash{}$10$, vârste $0$\textendash{}$150$, valori $\leq 10^6$)
     \end{itemize}
   \end{block}
-  \begin{block}{Când NU funcționează}
+  \begin{block}<3->{Când nu funcționează}
     \begin{itemize}
-      \item Valori negative sau reale (trebuie transformate mai întai)
-      \item $k$ foarte mare (ex: valori până la $10^9$ \textemdash{} ar necesita $4$ GB memorie)
+      \item Valori negative (se adună o constantă tuturor valorilor) sau reale (trebuie transformate mai întâi)
+      \item $k$ foarte mare: valori până la $10^9$ ar necesita un tablou de aproximativ $4$ GB
     \end{itemize}
   \end{block}
 \end{frame}
@@ -303,11 +448,11 @@ void countingSort(vector<int>& v) {
 % ================================================================
 \section{Comparație}
 
-\begin{frame}{Comparație algoritmi de sortare}
+\begin{frame}{Comparația algoritmilor de sortare}
   \begin{center}
   \begin{tabular}{llll}
     \toprule
-    Algoritm & Timp & Spațiu & Condiții \\
+    Algoritm & Timp & Spațiu suplimentar & Condiții \\
     \midrule
     Bubble Sort    & $O(n^2)$      & $O(1)$      & orice tip comparabil \\
     Selection Sort & $O(n^2)$      & $O(1)$      & orice tip comparabil \\
@@ -317,11 +462,14 @@ void countingSort(vector<int>& v) {
     \bottomrule
   \end{tabular}
   \end{center}
-  \bigskip
+  \begin{intrebare}<2->
+    Ce algoritm este potrivit pentru $n = 10^5$ valori până la $10^9$?
+  \end{intrebare}
+  \uncover<3->{STL sort: metodele pătratice fac circa $10^{10}$ operații, iar Counting Sort ar necesita un tablou de $10^9$ elemente.}
   \begin{itemize}
-    \item În practică: folosește \textbf{STL sort} dacă nu ai restricții speciale
-    \item Counting Sort bate STL sort când $k = O(n)$
-    \item Bubble Sort \textemdash{} util pedagogic, evitat în concursuri
+    \item<4-> În practică se folosește \textbf{STL sort}, dacă nu există restricții speciale
+    \item<4-> Counting Sort este mai rapid decât STL sort când $k = O(n)$
+    \item<4-> Bubble Sort este util didactic, dar se evită în concursuri
   \end{itemize}
 \end{frame}
 
@@ -334,65 +482,73 @@ void countingSort(vector<int>& v) {
     \toprule
     Operație & Cod C++ \\
     \midrule
-    Sortare crescătoare    & \lstinline|sort(v.begin(), v.end())| \\
-    Sortare descrescătoare & \lstinline|sort(v.begin(), v.end(), greater<int>())| \\
-    Sortare subarray       & \lstinline[keepspaces=true]|sort(v.begin() + l, v.begin() + r + 1)| \\
-    Comparator custom      & \lstinline|sort(v.begin(), v.end(), cmp)| \\
+    Sortare crescătoare    & \lstinline|sort(v, v + n)| \\
+    Sortare descrescătoare & \lstinline|sort(v, v + n, greater<int>())| \\
+    Sortare a pozițiilor $l..r$ & \lstinline[keepspaces=true]|sort(v + l, v + r + 1)| \\
+    Comparator propriu     & \lstinline|sort(v, v + n, cmp)| \\
     \bottomrule
   \end{tabular}
   \end{center}
-  \bigskip
   \begin{itemize}
-    \item \textbf{Bubble Sort / Selection Sort / Insertion Sort:} $O(n^2)$
-    \item \textbf{STL sort:} $O(n \log n)$, soluția implicită
-    \item \textbf{Counting Sort:} $O(n+k)$, doar pentru întregi mici
+    \item \textbf{Bubble, Selection, Insertion Sort}: $O(n^2)$; Bubble și Insertion fac exact atâtea interschimbări câte inversiuni există
+    \item \textbf{STL sort}: $O(n \log n)$, soluția implicită; comparatorul nu trebuie să întoarcă \lstinline|true| pentru elemente egale
+    \item \textbf{Counting Sort}: $O(n + k)$, doar pentru întregi mici
   \end{itemize}
 \end{frame}
 
-% ================================================================
-\section{Resurse}
-
-\begin{frame}{Resurse}
-  \begin{block}{Sortare}
-    \begin{itemize}
-      \item \href{https://www.pbinfo.ro/articole/5587/sortarea-tablourilor}{\textbf{pbinfo.ro}} \textemdash{} Sortarea tablourilor (RO)
-      \item \href{https://www.pbinfo.ro/articole/5563/sortarea-prin-selectie}{\textbf{pbinfo.ro}} \textemdash{} Sortare prin selecție (RO)
-      \item \href{https://cp-algorithms.com/sequences/bubble-sort.html}{\textbf{cp-algorithms.com}} \textemdash{} Bubble Sort (EN)
-      \item \href{https://en.cppreference.com/w/cpp/algorithm/sort}{\textbf{cppreference.com}} \textemdash{} std::sort (EN)
-    \end{itemize}
+\begin{frame}{Probleme de antrenament}
+  \begin{block}{Ușoară}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1081}{\textbf{Even Sort}}
+            \textcolor{gray}{(AlgoCode \#1081)}
+    \end{enumerate}
   \end{block}
-  \begin{block}{STL}
-    \begin{itemize}
-      \item \href{https://www.pbinfo.ro/articole/23702/standard-template-library-stl}{\textbf{pbinfo.ro}} \textemdash{} STL în română
-    \end{itemize}
+  \begin{block}{Medii}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1077}{\textbf{K Sort}}
+            \textcolor{gray}{(AlgoCode \#1077)}
+      \item \href{https://code.algolymp.com/problems/1076}{\textbf{Sort Primes}}
+            \textcolor{gray}{(AlgoCode \#1076)}
+    \end{enumerate}
   \end{block}
-  \begin{block}{Bonus \textemdash{} algoritmi mai eficienți}
-    \begin{itemize}
-      \item \href{https://en.wikipedia.org/wiki/Quicksort}{\textbf{wikipedia.org}} \textemdash{} Quicksort, $O(n \log n)$ mediu (EN)
-      \item \href{https://en.wikipedia.org/wiki/Merge_sort}{\textbf{wikipedia.org}} \textemdash{} Merge Sort, $O(n \log n)$ garantat (EN)
-    \end{itemize}
+  \begin{block}{Grea}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1082}{\textbf{Array Task}}
+            \textcolor{gray}{(AlgoCode \#1082)}
+    \end{enumerate}
   \end{block}
 \end{frame}
 
-% ================================================================
-\section{Probleme de antrenament}
-
-\begin{frame}{Probleme de antrenament}
-  \begin{block}{Ușoară}
-    \begin{itemize}
-      \item \href{https://code.algolymp.com/problems/1081}{\textbf{Even Sort}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
+\begin{frame}{Resurse}
+  \begin{block}{Materiale}
+    \begin{enumerate}
+      \item \href{https://www.pbinfo.ro/articole/5587/sortarea-tablourilor}{\textbf{pbinfo.ro}}
+            \textemdash{} Sortarea tablourilor (RO)
+      \item \href{https://www.pbinfo.ro/articole/5563/sortarea-prin-selectie}{\textbf{pbinfo.ro}}
+            \textemdash{} Sortare prin selecție (RO)
+      \item \href{https://www.pbinfo.ro/articole/23702/standard-template-library-stl}{\textbf{pbinfo.ro}}
+            \textemdash{} STL în română
+      \item \href{https://cp-algorithms.com/sequences/bubble-sort.html}{\textbf{cp-algorithms.com}}
+            \textemdash{} Bubble Sort (EN)
+      \item \href{https://en.cppreference.com/w/cpp/algorithm/sort}{\textbf{cppreference.com}}
+            \textemdash{} std::sort (EN)
+      \item \href{https://en.wikipedia.org/wiki/Quicksort}{\textbf{wikipedia.org}}
+            \textemdash{} Quicksort și \href{https://en.wikipedia.org/wiki/Merge_sort}{Merge Sort}, algoritmi $O(n \log n)$ (EN)
+    \end{enumerate}
   \end{block}
-  \begin{block}{Medii}
-    \begin{itemize}
-      \item \href{https://code.algolymp.com/problems/1077}{\textbf{K Sort}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-      \item \href{https://code.algolymp.com/problems/1076}{\textbf{Sort Primes}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
-  \end{block}
-  \begin{block}{Grea}
-    \begin{itemize}
-      \item \href{https://code.algolymp.com/problems/1082}{\textbf{Array Task}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
+  \begin{block}{Vizualizări}
+    \begin{enumerate}
+      \item \href{https://visualgo.net/en/sorting}{\textbf{VisuAlgo}}
+            \textemdash{} animații pas cu pas pentru Bubble, Selection, Insertion, Merge, Quick, Counting și Radix Sort, cu date introduse de utilizator (EN)
+      \item \href{https://www.toptal.com/developers/sorting-algorithms}{\textbf{Toptal}}
+            \textemdash{} opt algoritmi comparați pe date aleatoare, aproape sortate, inversate și cu puține valori distincte (EN)
+      \item \href{https://www.cs.usfca.edu/~galles/visualization/ComparisonSort.html}{\textbf{USFCA}}
+            \textemdash{} Comparison Sorting Visualization (EN)
+      \item \href{https://panthema.net/2013/sound-of-sorting/}{\textbf{Sound of Sorting}}
+            \textemdash{} vizualizare și sunet pentru operațiile de sortare (EN)
+      \item \href{https://www.youtube.com/watch?v=kPRA0W1kECg}{\textbf{YouTube}}
+            \textemdash{} 15 Sorting Algorithms in 6 Minutes (EN)
+    \end{enumerate}
   \end{block}
 \end{frame}
 

@@ -1,0 +1,52 @@
+\ProvidesPackage{theme-sorting}
+% Temă auxiliară doar pentru lecția 09/04 (sortări): aspectul Infogym
+% (Madrid + albastru marin, din resources/themes/infogym.sty), cu slide de titlu
+% adaptat pentru Algolymp (fără dată, cu subtitlu).
+% Usage: \documentclass[9pt]{beamer}  +  \usepackage{theme-sorting}
+\RequirePackage{../../../resources/themes/infogym}
+
+% Paleta Algolymp: albastrul din logo (periwinkle, aprox. #6088F8) și nuanțe mai închise
+% derivate din el; aceleași nume de culori ca în infogym.sty, deci restul temei se aplică
+\definecolor{igBlue}  {RGB}{96,  136, 248}   % albastrul din logo-ul Algolymp
+\definecolor{igMarine}{RGB}{52,  82,  190}   % același ton, ușor mai închis (titluri, subsol)
+\definecolor{igNavy}  {RGB}{30,  40,  100}   % text și linii
+\definecolor{igSlate} {RGB}{84,  114, 214}   % titluri de blocuri
+
+\makeatletter
+\@ifclassloaded{beamer}{%
+  % Culorile Beamer din infogym.sty se recalculează cu noua paletă
+  \setbeamercolor{structure}{fg=igMarine}
+  \setbeamercolor*{palette primary}{fg=igMarine!85!black,bg=gray!20!white}
+  \setbeamercolor*{palette secondary}{fg=igMarine!90!black,bg=igBlue!14!white}
+  \setbeamercolor*{palette tertiary}{bg=igMarine,fg=white}
+  \setbeamercolor*{palette quaternary}{fg=igMarine,bg=gray!5!white}
+  \setbeamercolor{titlelike}{parent=palette primary,fg=igMarine}
+  \setbeamercolor{normal text}{fg=igNavy!85!black}
+  \setbeamercolor{block title}{fg=white,bg=igSlate}
+  \setbeamercolor{block body}{fg=black,bg=igBlue!12!white}
+
+  % Slide de titlu în stilul vechi (Metropolis): logoul sus-stânga, titlul și subtitlul
+  % aliniate la stânga, o linie, apoi autorul și instituția; culorile sunt cele Infogym
+  \renewcommand{\igtitleslide}{%
+    \begin{frame}[plain]
+      \begin{tikzpicture}[remember picture,overlay]
+        \node[anchor=north west,inner sep=0pt] at ([shift={(0.95cm,-0.9cm)}]current page.north west)
+          {\inserttitlegraphic};
+        \node[anchor=north west,text=igNavy,text width=0.82\paperwidth,inner sep=0pt]
+          at ([shift={(0.95cm,-3.1cm)}]current page.north west)
+          {\fontsize{19}{23}\selectfont\bfseries\inserttitle\par\vspace{0.25cm}%
+           {\color{igSlate}\fontsize{11}{14}\selectfont\insertsubtitle}};
+        \draw[igMarine,line width=0.8pt] ([shift={(0.95cm,-5.0cm)}]current page.north west)
+          -- ([shift={(-0.95cm,-5.0cm)}]current page.north east);
+        \node[anchor=north west,text=igNavy,inner sep=0pt]
+          at ([shift={(0.95cm,-5.35cm)}]current page.north west)
+          {\fontsize{11}{14}\selectfont\insertauthor};
+        \node[anchor=north west,text=igSlate,inner sep=0pt]
+          at ([shift={(0.95cm,-6.05cm)}]current page.north west)
+          {\fontsize{9}{11}\selectfont\bfseries\insertinstitute};
+      \end{tikzpicture}
+    \end{frame}}
+  % Cod ceva mai mic decât în infogym.sty, ca să încapă ca la tema dense
+  \lstset{basicstyle=\ttfamily\footnotesize}
+}{}
+\makeatother

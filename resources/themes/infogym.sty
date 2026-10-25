@@ -1,0 +1,144 @@
+\ProvidesPackage{infogym}
+% Infogym Theme — lecții și sesiuni de probleme pentru Infogym
+% Bază: Beamer Madrid + paleta Beaver (gri), cu accentul roșu înlocuit de albastru marin
+% din logo-ul Infogym. Structura (cuprins la fiecare secțiune, bullet-uri simple,
+% bloc-uri cu titlu) urmează `resources/talk.tex`.
+% Usage: \documentclass[8pt,mathserif]{beamer}  (4:3, ca în talk.tex)
+%        \usepackage{../../../resources/themes/infogym}
+% NU apela \usetheme{} / \usecolortheme{} în document.
+
+% ============================================================
+% Pachete utilitare
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+% romanian.ldf lipsește în unele instalări TeX Live; se revine la english fără eroare
+\IfFileExists{romanian.ldf}{\usepackage[romanian,english]{babel}}{\usepackage[english]{babel}}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes,calc,fit,backgrounds}
+\usepackage{booktabs,array,multirow}
+
+% ============================================================
+% Paletă
+% ============================================================
+\definecolor{igBlue}  {RGB}{0,   128, 232}   % albastrul din logo-ul Infogym (accente mici)
+\definecolor{igMarine}{RGB}{9,   54,  110}   % albastru marin: același ton, mai închis
+\definecolor{igNavy}  {RGB}{16,  34,  72}    % text și linii
+\definecolor{igSlate} {RGB}{82,  108, 142}   % albastru-gri mat pentru blocuri
+\definecolor{igIndigo}{RGB}{98,  94,  166}   % indigo mat (enunțuri; ecou al logo-ului Hai la Olimpiadă)
+\definecolor{igOchre} {RGB}{176, 126, 40}    % ocru mat (capcane)
+\definecolor{igGreen} {RGB}{30,  150, 90}
+\definecolor{igRed}   {RGB}{196, 84,  70}    % doar pentru „fals” și nivelul „greu”
+\definecolor{igAmber} {RGB}{214, 150, 30}
+\definecolor{codebg}      {RGB}{244, 247, 252}
+\definecolor{codecomment} {RGB}{30,  130, 80}
+\definecolor{codekeyword} {RGB}{0,   70,  190}
+\definecolor{codestring}  {RGB}{163, 21,  21}
+
+% ============================================================
+% C++ listings (cuvinte cheie albastre, comentarii verzi)
+% ============================================================
+\lstset{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekeyword}\bfseries,
+  commentstyle=\color{codecomment}\itshape,
+  stringstyle=\color{codestring},
+  numbers=none,
+  showspaces=false, showstringspaces=false,
+  breaklines=true, columns=flexible, frame=single, rulecolor=\color{igSlate!45},
+  captionpos=b, language=C++, tabsize=2, xleftmargin=0.5em, xrightmargin=0.5em,
+  morekeywords={vector,pair,map,set,queue,stack,priority_queue,auto,int64_t,ll}
+}
+
+% ============================================================
+% Setări Beamer
+% ============================================================
+\makeatletter
+\@ifclassloaded{beamer}{%
+
+  \usetheme{Madrid}
+
+  % Paleta Beaver, cu roșul (darkred) înlocuit de albastrul marin
+  \setbeamercolor{structure}{fg=igMarine}
+  \setbeamercolor{section in toc}{fg=black,bg=white}
+  \setbeamercolor{alerted text}{fg=igOchre}
+  \setbeamercolor*{palette primary}{fg=igMarine!60!black,bg=gray!30!white}
+  \setbeamercolor*{palette secondary}{fg=igMarine!70!black,bg=gray!15!white}
+  \setbeamercolor*{palette tertiary}{bg=igMarine!85!black,fg=gray!10!white}
+  \setbeamercolor*{palette quaternary}{fg=igMarine,bg=gray!5!white}
+  \setbeamercolor*{sidebar}{fg=igMarine,bg=gray!15!white}
+  \setbeamercolor{titlelike}{parent=palette primary,fg=igMarine}
+  \setbeamercolor{frametitle}{bg=gray!10!white}
+  \setbeamercolor{frametitle right}{bg=gray!60!white}
+  \setbeamercolor*{separation line}{}
+  \setbeamercolor*{fine separation line}{}
+  \setbeamercolor{normal text}{fg=igNavy!85!black}
+
+  % Blocuri: tonuri mate
+  \setbeamercolor{block title}{fg=white,bg=igSlate}
+  \setbeamercolor{block body}{fg=black,bg=igSlate!11}
+  \setbeamercolor{block title alerted}{fg=white,bg=igOchre}
+  \setbeamercolor{block body alerted}{fg=black,bg=igOchre!11}
+  \setbeamercolor{block title example}{fg=white,bg=igIndigo}
+  \setbeamercolor{block body example}{fg=black,bg=igIndigo!9}
+
+  % Ca în talk.tex
+  \setbeamertemplate{itemize items}[default]
+  \setbeamertemplate{enumerate items}[default]
+  \setbeamertemplate{section in toc}[square]
+
+  \AtBeginSection[]{%
+    \begin{frame}
+      \frametitle{Cuprins}
+      \tableofcontents[currentsection,hideallsubsections]
+    \end{frame}}
+
+  \setlength{\itemsep}{2pt}
+  \setlength{\parskip}{0pt}
+
+  % Slide de titlu: titlul într-o bandă albastră, apoi instituția cu data, autorul și logourile
+  \newcommand{\igtitleslide}{%
+    \begin{frame}[plain]
+      \begin{tikzpicture}[remember picture,overlay]
+        \fill[igMarine] (current page.north west) rectangle ([yshift=-4.9cm]current page.north east);
+        \fill[igBlue] ([yshift=-4.9cm]current page.north west) rectangle ([yshift=-5.05cm]current page.north east);
+        \node[text=white,align=center,text width=0.86\paperwidth,inner sep=0pt]
+          at ([yshift=-2.45cm]current page.north) {\fontsize{20}{25}\selectfont\bfseries\inserttitle};
+        \node[anchor=north,text=igSlate,align=center,text width=0.86\paperwidth,inner sep=0pt]
+          at ([yshift=-5.65cm]current page.north) {\fontsize{12}{15}\selectfont\insertinstitute\quad\textbullet\quad\insertdate};
+        \node[anchor=north,text=igNavy,align=center,inner sep=0pt]
+          at ([yshift=-6.45cm]current page.north) {\fontsize{12}{15}\selectfont\bfseries\insertauthor};
+        \node[anchor=south,inner sep=0pt] at ([yshift=0.45cm]current page.south) {\inserttitlegraphic};
+      \end{tikzpicture}
+    \end{frame}}
+
+  % Notă discretă la baza slide-ului
+  \newcommand{\beginnote}[1]{%
+    \vfill
+    {\footnotesize\textcolor{gray}{\itshape $\triangleright$ #1}}%
+  }
+
+  % Etichetă de sursă pentru probleme: \source{CSES 1620}
+  \newcommand{\source}[1]{{\small\textcolor{gray}{(#1)}}}
+
+  % Stiluri TikZ pentru diagrame (tablouri, predicate, ferestre)
+  \tikzset{
+    cell/.style={draw=igNavy!55, minimum width=0.62cm, minimum height=0.62cm, inner sep=0pt,
+                 font=\small, anchor=center},
+    cellF/.style={cell, fill=igRed!18},
+    cellT/.style={cell, fill=igGreen!22},
+    cellU/.style={cell, fill=white},
+    cellW/.style={cell, fill=igSlate!28},
+    cellS/.style={cell, fill=igAmber!35},
+    idx/.style={font=\scriptsize, text=igNavy!60},
+    ptr/.style={font=\footnotesize\bfseries, text=igMarine},
+    lab/.style={font=\footnotesize, anchor=west}
+  }
+
+}{}
+\makeatother
