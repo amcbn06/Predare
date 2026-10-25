@@ -1,12 +1,12 @@
 \ProvidesPackage{theme-sorting}
 % Temă auxiliară doar pentru lecția 09/04 (sortări): aspectul Infogym
-% (Madrid + albastru marin, din resources/themes/infogym.sty), cu slide de titlu
+% (Madrid + albastru marin, din resources/themes/infogym-lesson.sty), cu slide de titlu
 % adaptat pentru Algolymp (fără dată, cu subtitlu).
 % Usage: \documentclass[9pt]{beamer}  +  \usepackage{theme-sorting}
-\RequirePackage{../../../resources/themes/infogym}
+\RequirePackage{../../../resources/themes/infogym-lesson}
 
 % Paleta Algolymp: albastrul din logo (periwinkle, aprox. #6088F8) și nuanțe mai închise
-% derivate din el; aceleași nume de culori ca în infogym.sty, deci restul temei se aplică
+% derivate din el; aceleași nume de culori ca în infogym-lesson.sty, deci restul temei se aplică
 \definecolor{igBlue}  {RGB}{96,  136, 248}   % albastrul din logo-ul Algolymp
 \definecolor{igMarine}{RGB}{52,  82,  190}   % același ton, ușor mai închis (titluri, subsol)
 \definecolor{igNavy}  {RGB}{30,  40,  100}   % text și linii
@@ -14,7 +14,7 @@
 
 \makeatletter
 \@ifclassloaded{beamer}{%
-  % Culorile Beamer din infogym.sty se recalculează cu noua paletă
+  % Culorile Beamer din infogym-lesson.sty se recalculează cu noua paletă
   \setbeamercolor{structure}{fg=igMarine}
   \setbeamercolor*{palette primary}{fg=igMarine!85!black,bg=gray!20!white}
   \setbeamercolor*{palette secondary}{fg=igMarine!90!black,bg=igBlue!14!white}
@@ -46,7 +46,7 @@
           {\fontsize{9}{11}\selectfont\bfseries\insertinstitute};
       \end{tikzpicture}
     \end{frame}}
-  % Cod ceva mai mic decât în infogym.sty, ca să încapă ca la tema dense
+  % Cod ceva mai mic decât în infogym-lesson.sty, ca să încapă ca la tema dense
   \lstset{basicstyle=\ttfamily\footnotesize}
 }{}
 \makeatother
