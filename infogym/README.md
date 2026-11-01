@@ -1,6 +1,6 @@
 # Infogym
 
-Lecții pentru grupele Infogym. Fiecare lecție are `lesson.tex` și `lesson.pdf`.
+Lecții pentru grupele Infogym. Fiecare lecție are un `.tex` și un `.pdf` cu numele `GRUPA-lecție` (de exemplu `7-8-avansati-two-pointers-binary-search.pdf`).
 
 ## Lecții
 
@@ -8,13 +8,13 @@ Lecții pentru grupele Infogym. Fiecare lecție are `lesson.tex` și `lesson.pdf
 
 | Data | Topic |
 |------|------|
-| 28.11.2026 | **Generare combinatorială + Backtracking** (#6) |
+| [28.11.2026](7-8/combinatorial-generation-backtracking/7-8-combinatorial-generation-backtracking.pdf) | **Generare combinatorială + Backtracking** (#6) |
 
 ### Grupa 7-8 avansați
 
 | Data | Topic |
 |------|------|
-| [24.10.2026](7-8-avansati/two-pointers-binary-search/lesson.pdf) | **Two pointers. Căutare binară pe rezultat** (#2) |
+| [24.10.2026](7-8-avansati/two-pointers-binary-search/7-8-avansati-two-pointers-binary-search.pdf) | **Two pointers. Căutare binară pe rezultat** (#2) |
 | 06.02.2027 | **Algoritmi pe grafuri** (#13) |
 
 ### Grupa 11-12
