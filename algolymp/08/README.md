@@ -17,8 +17,8 @@ Urmărește [programa Olimpiadei Naționale de Informatică](https://cdn.sepi.ro
 | 09 | **Structuri de date: Coada de priorități dublă (`deque`)** |
 | 10 | **Elemente de geometrie: Reprezentare în memorie · Distanța între două puncte · Calculul ariilor** |
 | 11 | **Elemente de geometrie: Algoritmul Sweep Line** |
-| [12](12-dp-intro/lesson.pdf) | **Introducere în Programare Dinamică**<br>Fibonacci · DP pe matrice · Cel mai lung subșir crescător (SCLM) |
-| [13](13-dp-scm-rucsac/lesson.pdf) | **DP: Subșir comun maximal \| Problema Rucsacului**<br>SCM (LCS) · 0/1 Knapsack |
+| [12](12-dp-intro/08-12-dp-intro.pdf) | **Introducere în Programare Dinamică**<br>Fibonacci · DP pe matrice · Cel mai lung subșir crescător (SCLM) |
+| [13](13-dp-scm-rucsac/08-13-dp-scm-rucsac.pdf) | **DP: Subșir comun maximal \| Problema Rucsacului**<br>SCM (LCS) · 0/1 Knapsack |
 
 ## Resurse
 

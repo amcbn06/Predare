@@ -28,5 +28,5 @@ Necesită TeX Live sau MiKTeX.
 
 ```bash
 cd algolymp/09/01-divisibility
-pdflatex lesson.tex && pdflatex lesson.tex
+pdflatex 09-01-divisibility.tex && pdflatex 09-01-divisibility.tex
 ```
