@@ -1,136 +1,145 @@
-﻿\documentclass{beamer}
-\usetheme{metropolis}
-\usepackage{../../../resources/themes/algolymp-classic}
+% ================================================================
+% O singură sursă, două PDF-uri (compilează fiecare de două ori):
+%
+%   La clasă (interactiv, soluția se dezvăluie pe bucăți):
+%     pdflatex -jobname=lesson-interactive lesson.tex
+%
+%   Compact (toți pașii într-un singur slide, pentru elevi / README):
+%     pdflatex -jobname=lesson "\PassOptionsToClass{handout}{beamer}\input{lesson.tex}"
+% ================================================================
+\documentclass[9pt]{beamer}
+\usepackage{../../../resources/themes/algolymp-lesson}
 
-\newcommand{\beginnote}[1]{%
-  \vfill
-  {\footnotesize\textcolor{gray}{\textit{$\triangleright$ #1 (vezi slide-ul \emph{Resurse})}}}%
+% Mod interactiv: întrebarea apare prima, apoi soluția se dezvăluie pe bucăți
+% (\item<2->, \uncover<3->{...}, \begin{remarca}<4->{Concluzie}); hint-ul se
+% folosește doar unde elevii chiar trebuie împinși să se gândească.
+% Totul se afișează cumulativ: ce apare la pasul 2 rămâne vizibil după.
+\newenvironment<>{intrebare}{%
+  \begin{uncoverenv}#1%
+  \begin{block}{Întrebare}}{\end{block}\end{uncoverenv}}
+% Hint și remarcă: text inline cu etichetă colorată, fără cutie
+\newenvironment<>{hint}{%
+  \begin{uncoverenv}#1%
+  \par\textcolor{igMarine}{\textbf{Hint:}}\ }{\par\end{uncoverenv}}
+\newenvironment<>{remarca}[1]{%
+  \begin{uncoverenv}#2%
+  \par\smallskip\textcolor{igMarine}{\textbf{#1:}}\ }{\par\end{uncoverenv}}
+
+% Celulă de tabel vizibilă de la pasul #1
+\newcommand{\at}[2]{\uncover<#1->{#2}}
+
+% Diagrame cu tablouri: celulă în interval (N), în afara intervalului (O),
+% mijlocul curent (M), valoarea găsită (H)
+\tikzset{
+  cN/.style={draw=igNavy!55,fill=white,minimum width=0.66cm,minimum height=0.62cm,inner sep=0pt,font=\small},
+  cO/.style={cN,draw=igNavy!22,text=igNavy!35,fill=igSlate!8},
+  cM/.style={cN,fill=igOchre!32,draw=igOchre,thick},
+  cH/.style={cN,fill=igBlue!24,draw=igBlue,thick}
 }
+% \brow{y}{st}{dr}{mid}{text}: tabloul 2 5 8 11 14 17 20 23 26 29 32 (indici 0..10);
+% mid = -1 pentru ultimul rând (valoarea găsită este în poziția dr)
+\newcommand{\brow}[5]{%
+  \foreach \v [count=\i from 0] in {2,5,8,11,14,17,20,23,26,29,32} {%
+    \ifnum\i<#2\relax \tikzset{cs/.style={cO}}%
+    \else\ifnum\i>#3\relax \tikzset{cs/.style={cO}}%
+    \else \tikzset{cs/.style={cN}}\fi\fi
+    \ifnum\i=#4\relax \tikzset{cs/.style={cM}}\fi
+    \node[cs] at (\i*0.7,#1) {\v};}%
+  \node[anchor=west,font=\footnotesize] at (10*0.7+0.5,#1) {#5};}
+
+% Căutare binară pe 0..16, check(x) adevărat pentru x <= 10 :  \bsrow{rând}{st}{dr}{mid}{text}
+\newcommand{\bsrow}[5]{%
+  \foreach \i in {0,...,16} {%
+    \ifnum\i<#2\relax \tikzset{cs/.style={cellT}}%
+    \else\ifnum\i>#3\relax \tikzset{cs/.style={cellF}}%
+    \else \tikzset{cs/.style={cellU}}\fi\fi
+    \ifnum\i=#4\relax \tikzset{cs/.style={cellU,line width=1.6pt,draw=igBlue}}\fi
+    \node[cs,minimum width=0.4cm,minimum height=0.5cm] at (\i*0.41,-#1*0.75) {\tiny\i};}%
+  \node[lab,font=\scriptsize] at (16*0.41+0.3,-#1*0.75) {#5};}
 
 \title{Căutare binară}
-% pentru clasa a 6-a (sectiunile 5-6 comentate):
-% \subtitle{Varianta clasică $\cdot$ Variații $\cdot$ STL $\cdot$ Complexitate}
-% pentru clasa a 9-a:
-\subtitle{Varianta clasică $\cdot$ Variații $\cdot$ STL $\cdot$ Complexitate \\ Căutare binară pe rezultat}
-\author{Andrei Mihai Ciobanu}
-\institute{Algolymp Summer School}
+\subtitle{Varianta clasică $\cdot$ Variații $\cdot$ STL $\cdot$ Complexitate\\Căutare binară pe rezultat}
+\author[A. M. Ciobanu]{Andrei Mihai Ciobanu}
+\institute[Algolymp]{Algolymp Summer School}
 \date{}
-\titlegraphic{\includegraphics[width=4cm]{../../../resources/logos/algolymp.png}}
-\setbeamertemplate{frame footer}{Algolymp Summer School}
-
-% ----------------------------------------------------------------
-\begin{document}
-
-\begin{frame}[shrink]
-  \titlepage
-\end{frame}
-
-\begin{frame}{Cuprins}
-  \tableofcontents
-\end{frame}
+\titlegraphic{\includegraphics[width=3cm]{../../../resources/logos/algolymp.png}}
 
 % ================================================================
-% SECTIUNEA 1
+\begin{document}
+
+\igtitleslide
+
 % ================================================================
 \section{Căutarea binară a unui element}
 
 \begin{frame}{Motivație}
-  \textbf{Problemă:} avem un șir \emph{sortat} cu $n$ elemente și vrem să știm dacă valoarea $x$ se află în el.
-
-  \textbf{Căutare secvențială:} parcurgem elementele pe rând $\rightarrow$ în cel mai rău caz, $n$ comparații.
-
-  \textbf{Căutare binară:} folosim faptul că șirul e sortat și eliminăm jumătate din elemente la fiecare pas.
-
-  \smallskip
-  \begin{center}
-  \begin{tabular}{lcc}
-    \toprule
-    $n$ & Secvențial & Binar \\
-    \midrule
-    $10$            & $10$ pași       & $4$ pași  \\
-    $100$           & $100$ pași      & $7$ pași  \\
-    $1\,000\,000$   & $10^6$ pași     & $20$ pași \\
-    \bottomrule
-  \end{tabular}
-  \end{center}
+  \textbf{Problemă:} într-un șir \emph{sortat} cu $n$ elemente trebuie aflat dacă valoarea $x$ se află în el.
+  \begin{itemize}
+    \item \textbf{Căutare secvențială:} elementele se parcurg pe rând $\rightarrow$ în cel mai rău caz, $n$ comparații
+  \end{itemize}
+  \begin{intrebare}
+    Cum poate fi folosit faptul că șirul este sortat pentru a face mai puține comparații?
+  \end{intrebare}
+  \begin{itemize}
+    \item<2-> \textbf{Căutare binară:} se compară $x$ cu elementul din mijloc, iar jumătatea în care $x$ nu se poate afla se elimină la fiecare pas
+  \end{itemize}
+  \uncover<3->{
+    \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      $n$ & Secvențial & Binar \\
+      \midrule
+      $10$            & $10$ pași       & $4$ pași  \\
+      $100$           & $100$ pași      & $7$ pași  \\
+      $1\,000\,000$   & $10^6$ pași     & $20$ pași \\
+      \bottomrule
+    \end{tabular}
+    \end{center}}
 \end{frame}
 
 \begin{frame}{Idee}
-  \begin{block}{Condiții}
-    \begin{itemize}
-      \item Șirul trebuie să fie \textbf{sortat} (crescător sau descrescător)
-      %\item Acces direct la element prin indice în $O(1)$ (tablou / \texttt{vector})
-    \end{itemize}
+  \begin{block}{Condiție}
+    Șirul trebuie să fie \textbf{sortat} (crescător sau descrescător).
   \end{block}
-
-  \smallskip
-  Păstrăm un interval $[st, dr]$ care conține răspunsul. La fiecare pas:
+  Se păstrează un interval $[st, dr]$ care conține răspunsul. La fiecare pas:
   \begin{enumerate}
-    \item Calculăm mijlocul: $mij = (st + dr) \ / \ 2$
-    \item Comparăm $v[mij]$ cu $x$:
-    \begin{itemize}
-      \item $v[mij] = x$ $\rightarrow$ \textbf{găsit!}
-      \item $v[mij] < x$ $\rightarrow$ $st = mij + 1$ \textemdash{} căutăm în dreapta
-      \item $v[mij] > x$ $\rightarrow$ $dr = mij - 1$ \textemdash{} căutăm în stânga
-    \end{itemize}
+    \item Se calculează mijlocul: $mid = (st + dr) \ / \ 2$ (împărțire întreagă)
+    \item Se compară $v[mid]$ cu $x$:
   \end{enumerate}
-  \smallskip
-  Ne oprim când găsim valoarea sau când intervalul devine gol ($st > dr$).
-\end{frame}
-
-\begin{frame}{Algoritm pas cu pas}
-  Șir sortat: $v = [2,\ 5,\ 8,\ 11,\ 14,\ 17,\ 20,\ 23,\ 26,\ 29,\ 32]$, căutăm $x = 23$.
-
-  \smallskip
+  \begin{intrebare}<2->
+    Ce se face în fiecare dintre cazurile $v[mid] = x$, $v[mid] < x$ și $v[mid] > x$?
+  \end{intrebare}
   \begin{itemize}
-    \item $st=0,\;dr=10 \Rightarrow mij=5,\;v[5]=17 < 23 \Rightarrow st = 6$
-    \item $st=6,\;dr=10 \Rightarrow mij=8,\;v[8]=26 > 23 \Rightarrow dr = 7$
-    \item $st=6,\;dr=7\;\;\Rightarrow mij=6,\;v[6]=20 < 23 \Rightarrow st = 7$
-    \item $st=7,\;dr=7\;\;\Rightarrow mij=7,\;v[7]=23 = 23 \Rightarrow$ \textbf{găsit la poziția $7$} \checkmark
+    \item<3-> $v[mid] = x$ $\rightarrow$ \textbf{găsit}
+    \item<3-> $v[mid] < x$ $\rightarrow$ $st = mid + 1$ \textemdash{} se caută în dreapta
+    \item<3-> $v[mid] > x$ $\rightarrow$ $dr = mid - 1$ \textemdash{} se caută în stânga
   \end{itemize}
+  \begin{remarca}<4->{Oprire}
+    Căutarea se oprește când valoarea este găsită sau când intervalul devine gol ($st > dr$).
+  \end{remarca}
 \end{frame}
 
-\begin{frame}{Vizualizare \textemdash{} intervalul se înjumătățește}
+\begin{frame}{Algoritmul pas cu pas}
+  Șir sortat $v = [2,\ 5,\ 8,\ 11,\ 14,\ 17,\ 20,\ 23,\ 26,\ 29,\ 32]$, căutăm $x = 23$.
+  \begin{intrebare}
+    Câți pași sunt necesari pentru a găsi $x = 23$ și ce interval rămâne după fiecare pas?
+  \end{intrebare}
   \begin{center}
-  \begin{tikzpicture}[
-      box/.style={draw, minimum width=0.8cm, minimum height=0.62cm, font=\scriptsize},
-      lbl/.style={font=\tiny}
-    ]
-    \foreach \i/\val in {0/2,1/5,2/8,3/11,4/14,5/17,6/20,7/23,8/26,9/29,10/32} {
-      \node[lbl, text=gray] at (\i*0.82, 0.5) {\i};
-    }
-    \foreach \r/\st/\dr/\mij/\txt in {0/0/10/5/{pas 1: $mij=5$},1/6/10/8/{pas 2: $mij=8$},2/6/7/6/{pas 3: $mij=6$},3/7/7/7/{pas 4: gasit!}} {
-      \node[lbl, anchor=east] at (-0.55, -1.05*\r) {\txt};
-      \foreach \i/\val in {0/2,1/5,2/8,3/11,4/14,5/17,6/20,7/23,8/26,9/29,10/32} {
-        \ifnum\i<\st
-          \node[box, draw=gray!35, text=gray!55] at (\i*0.82, -1.05*\r) {\val};
-        \else
-          \ifnum\i>\dr
-            \node[box, draw=gray!35, text=gray!55] at (\i*0.82, -1.05*\r) {\val};
-          \else
-            \ifnum\i=\mij
-              \node[box, fill=yellow!60, very thick, draw=orange!80!black] at (\i*0.82, -1.05*\r) {\val};
-            \else
-              \node[box] at (\i*0.82, -1.05*\r) {\val};
-            \fi
-          \fi
-        \fi
-      }
-    }
+  \begin{tikzpicture}
+    \uncover<2->{\brow{0}{0}{10}{5}{$mid=5$: $17 < 23 \rightarrow st=6$}}
+    \uncover<3->{\brow{-0.8}{6}{10}{8}{$mid=8$: $26 > 23 \rightarrow dr=7$}}
+    \uncover<4->{\brow{-1.6}{6}{7}{6}{$mid=6$: $20 < 23 \rightarrow st=7$}}
+    \uncover<5->{\brow{-2.4}{7}{7}{7}{$mid=7$: $23 = 23$, găsit}}
   \end{tikzpicture}
   \end{center}
-  \smallskip
-  La fiecare pas, intervalul $[st, dr]$ se \textbf{înjumătățește}.
+  \begin{remarca}<5->{Concluzie}
+    Celula colorată este $mid$, iar celulele estompate sunt eliminate: intervalul $[st, dr]$ se înjumătățește la fiecare pas.
+  \end{remarca}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Căutare secvențială \textemdash{} implementare}
+\begin{frame}[fragile]{Căutare secvențială \textemdash{} implementare}
   \begin{lstlisting}
-int n, x;
-cin >> n >> x;
-vector<int> v(n);
-for (int i = 0; i < n; i++) {
-    cin >> v[i];
-}
+int n, x, v[100005];       // se citesc n, x si v[0..n-1]
 
 int poz = -1;
 for (int i = 0; i < n; i++) {
@@ -143,343 +152,325 @@ for (int i = 0; i < n; i++) {
 cout << poz;
   \end{lstlisting}
   \begin{itemize}
-    \item Complexitate: $O(n)$ \textemdash{} în cel mai rău caz parcurgem tot șirul
+    \item Complexitate: $O(n)$ \textemdash{} în cel mai rău caz se parcurge tot șirul
     \item Funcționează pe orice șir, \textbf{sortat sau nu}
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Căutare binară \textemdash{} implementare}
+\begin{frame}[fragile]{Căutare binară \textemdash{} implementare}
   \begin{lstlisting}
-int n, x;
-cin >> n >> x;
-vector<int> v(n);
-for (int i = 0; i < n; i++) {
-    cin >> v[i];
-}
+int n, x, v[100005];       // se citesc n, x si v[0..n-1]
 
 int st = 0, dr = n - 1, poz = -1;
 while (st <= dr) {
-    int mij = (st + dr) / 2;
-    if (v[mij] == x) {
-        poz = mij;
+    int mid = (st + dr) / 2;
+    if (v[mid] == x) {
+        poz = mid;
         break;
-    } else if (v[mij] < x) {
-        st = mij + 1;  // cautam in dreapta
+    } else if (v[mid] < x) {
+        st = mid + 1;      // cautam in dreapta
     } else {
-        dr = mij - 1;  // cautam in stanga
+        dr = mid - 1;      // cautam in stanga
     }
 }
 
 cout << poz;
   \end{lstlisting}
   \begin{itemize}
-    \item Complexitate: $O(\log n)$ \textemdash{} \textbf{șirul trebuie să fie sortat}
+    \item Complexitate: $O(\log n)$
   \end{itemize}
+  \begin{intrebare}<2->
+    Ce se întâmplă dacă șirul nu este sortat?
+  \end{intrebare}
+  \uncover<3->{Eliminarea unei jumătăți nu mai este justificată, deci algoritmul poate rata valoarea căutată.}
 \end{frame}
 
 % ================================================================
-% SECTIUNEA 2
-% ================================================================
 \section{Variații}
 
-\begin{frame}{Lower bound \textemdash{} upper bound}
-  Căutarea clasică găsește \textbf{o apariție oarecare} a lui $x$. Adesea avem nevoie de:
-
-  \smallskip
+\begin{frame}{Lower bound și upper bound}
+  Căutarea clasică găsește \textbf{o apariție oarecare} a lui $x$. Adesea este nevoie de:
   \begin{itemize}
     \item \textbf{Lower bound:} prima poziție cu $v[poz] \geq x$
     \item \textbf{Upper bound:} prima poziție cu $v[poz] > x$
   \end{itemize}
-
-  Exemplu: $v = [1,\ 2,\ 2,\ 2,\ 3,\ 5]$, $x = 2$
-
-  \smallskip
-  \begin{center}
-  \begin{tabular}{lcc}
-    \toprule
-    & Poziție & Valoare \\
-    \midrule
-    Lower bound ($\geq 2$) & $1$ & $v[1] = 2$ \\
-    Upper bound ($> 2$)    & $4$ & $v[4] = 3$ \\
-    \bottomrule
-  \end{tabular}
-  \end{center}
-
-  \smallskip
-  Numărul de apariții ale lui $x$: $\text{upper\_bound} - \text{lower\_bound} = 4 - 1 = 3$
+  \begin{intrebare}
+    Pentru $v = [1,\ 2,\ 2,\ 2,\ 3,\ 5]$ și $x = 2$, care sunt cele două poziții și câte apariții are $x$?
+  \end{intrebare}
+  \begin{uncoverenv}<2->
+    \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      & Poziție & Valoare \\
+      \midrule
+      Lower bound ($\geq 2$) & $1$ & $v[1] = 2$ \\
+      Upper bound ($> 2$)    & $4$ & $v[4] = 3$ \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{uncoverenv}
+  \begin{remarca}<3->{Numărul de apariții}
+    $\text{upper\_bound} - \text{lower\_bound} = 4 - 1 = 3$.
+  \end{remarca}
 \end{frame}
 
 \begin{frame}[fragile]{Implementare \texttt{lower\_bound}}
   \begin{lstlisting}
 // prima pozitie cu v[poz] >= x
-// rez = n daca toate elementele < x
-int st = 0, dr = n - 1, rez = n;
+// ans = n daca toate elementele sunt < x
+int st = 0, dr = n - 1, ans = n;
 while (st <= dr) {
-    int mij = (st + dr) / 2;
-    if (v[mij] >= x) {
-        rez = mij;    // candidat, continuam in stanga
-        dr = mij - 1;
+    int mid = (st + dr) / 2;
+    if (v[mid] >= x) {
+        ans = mid;       // candidat, continuam in stanga
+        dr = mid - 1;
     } else {
-        st = mij + 1;
+        st = mid + 1;
     }
 }
   \end{lstlisting}
-  Când $v[mij] \geq x$, \textbf{salvăm} poziția și căutăm mai la stânga un candidat mai bun.
+  Când $v[mid] \geq x$, poziția se \textbf{salvează}, iar căutarea continuă mai la stânga, după un candidat mai bun.
+  \begin{intrebare}<2->
+    Ce condiție trebuie modificată pentru \texttt{upper\_bound}?
+  \end{intrebare}
+  \uncover<3->{Singura diferență: condiția \lstinline|v[mid] > x| în loc de \lstinline|v[mid] >= x|.}
 \end{frame}
 
-\begin{frame}[fragile]{Implementare \texttt{upper\_bound}}
-  \begin{lstlisting}
-// prima pozitie cu v[poz] > x
-// rez = n daca toate elementele <= x
-int st = 0, dr = n - 1, rez = n;
-while (st <= dr) {
-    int mij = (st + dr) / 2;
-    if (v[mij] > x) {
-        rez = mij;    // candidat, continuam in stanga
-        dr = mij - 1;
-    } else {
-        st = mij + 1;
-    }
-}
-  \end{lstlisting}
-  Singura diferență față de \texttt{lower\_bound}: condiția \lstinline|v[mij] > x| în loc de \lstinline|v[mij] >= x|.
-\end{frame}
-
-\begin{frame}[fragile, shrink]{Ultima poziție cu $v[poz] < x$ / $\leq x$}
-  Aceleași idei ne dau și pozițiile din partea cealaltă:
-  \begin{itemize}
-    \item Ultima poziție cu $v[poz] < x$ $=$ \texttt{lower\_bound}$(x) - 1$
-    \item Ultima poziție cu $v[poz] \leq x$ $=$ \texttt{upper\_bound}$(x) - 1$
-  \end{itemize}
-  Sau adaptăm direct implementarea, inversând sensul căutării:
-  \begin{lstlisting}
+\begin{frame}[fragile]{Ultima poziție cu $v[poz] < x$ sau $\leq x$}
+  \begin{intrebare}
+    Cum se obține ultima poziție cu $v[poz] \leq x$, folosind \texttt{upper\_bound}?
+  \end{intrebare}
+  \uncover<2->{
+    \begin{itemize}
+      \item Ultima poziție cu $v[poz] < x$ $=$ \texttt{lower\_bound}$(x) - 1$
+      \item Ultima poziție cu $v[poz] \leq x$ $=$ \texttt{upper\_bound}$(x) - 1$
+    \end{itemize}
+    Sau implementarea se adaptează direct, inversând sensul căutării:}
+  \begin{uncoverenv}<3->
+    \begin{lstlisting}
 // ultima pozitie cu v[poz] <= x
-// rez = -1 daca toate elementele > x
-int st = 0, dr = n - 1, rez = -1;
+// ans = -1 daca toate elementele sunt > x
+int st = 0, dr = n - 1, ans = -1;
 while (st <= dr) {
-    int mij = (st + dr) / 2;
-    if (v[mij] <= x) {
-        rez = mij;    // candidat, continuam in dreapta
-        st = mij + 1;
+    int mid = (st + dr) / 2;
+    if (v[mid] <= x) {
+        ans = mid;       // candidat, continuam in dreapta
+        st = mid + 1;
     } else {
-        dr = mij - 1;
+        dr = mid - 1;
     }
 }
-  \end{lstlisting}
-  Pentru $< x$: schimbăm condiția în \lstinline|v[mij] < x|.
+    \end{lstlisting}
+    Pentru $< x$, condiția devine \lstinline|v[mid] < x|.
+  \end{uncoverenv}
 \end{frame}
 
-% ================================================================
-% SECTIUNEA 3
 % ================================================================
 \section{Variații în STL}
 
-\begin{frame}[fragile, shrink]{STL: \texttt{binary\_search}, \texttt{lower\_bound}, \texttt{upper\_bound}}
-  C++ oferă aceste funcții gata implementate în \lstinline|<algorithm>|, toate $O(\log n)$:
-  \begin{lstlisting}
+\begin{frame}[fragile]{STL: \texttt{binary\_search}, \texttt{lower\_bound}, \texttt{upper\_bound}}
+  C++ oferă aceste funcții gata implementate în \lstinline|<algorithm>|, toate cu complexitate $O(\log n)$.
+  \begin{intrebare}
+    Cum se află, cu aceste funcții, dacă $x$ există în șir, prima lui poziție și numărul lui de apariții?
+  \end{intrebare}
+  \begin{uncoverenv}<2->
+    \begin{lstlisting}
 #include <algorithm>
-vector<int> v = {1, 2, 2, 2, 3, 5};
+using namespace std;
+
+int v[] = {1, 2, 2, 2, 3, 5};
+int n = 6;
 
 // Exista x in v? (true/false)
-bool exista = binary_search(v.begin(), v.end(), 2);
-
-// Iteratori
-auto it1 = lower_bound(v.begin(), v.end(), 2);
-auto it2 = upper_bound(v.begin(), v.end(), 2);
+bool exista = binary_search(v, v + n, 2);
 
 // Pozitii (indici)
-int poz1 = it1 - v.begin(); // poz1 = 1 (prima aparitie)
-int poz2 = it2 - v.begin(); // poz2 = 4 (dupa ultima)
+int poz1 = lower_bound(v, v + n, 2) - v;   // 1: prima aparitie
+int poz2 = upper_bound(v, v + n, 2) - v;   // 4: dupa ultima
 
 // Numarul de aparitii ale lui x
-int cate = it2 - it1;       // cate = 3
-  \end{lstlisting}
-  \beginnote{vector, iterator \textemdash{} din STL}
+int cate = poz2 - poz1;                    // 3
+    \end{lstlisting}
+  \end{uncoverenv}
+  \beginnote{\texttt{lower\_bound} întoarce un pointer / iterator; scăzând începutul tabloului se obține indicele}
 \end{frame}
 
 \begin{frame}[fragile]{STL \textemdash{} numărare pe interval $[x, y]$}
-  \begin{lstlisting}
-vector<int> v = {23, 2, 5, 26, 11, 17, 14, 8, 20};
-// sirul trebuie sortat inainte!
-sort(v.begin(), v.end());
+  \begin{intrebare}
+    Cum se numără elementele unui șir care se află în intervalul $[x, y]$?
+  \end{intrebare}
+  \begin{hint}<2->
+    Șirul se sortează, apoi se folosesc \texttt{lower\_bound} pentru $x$ și \texttt{upper\_bound} pentru $y$.
+  \end{hint}
+  \begin{uncoverenv}<3->
+    \begin{lstlisting}
+int v[] = {23, 2, 5, 26, 11, 17, 14, 8, 20};
+int n = 9;
+sort(v, v + n);                  // sirul trebuie sortat inainte
 
 int x = 8, y = 20;
+int st = lower_bound(v, v + n, x) - v;   // prima pozitie cu v[poz] >= x
+int dr = upper_bound(v, v + n, y) - v;   // prima pozitie cu v[poz] > y
 
-// prima pozitie cu v[poz] >= x
-int st = lower_bound(v.begin(), v.end(), x) - v.begin();
-
-// prima pozitie cu v[poz] > y
-int dr = upper_bound(v.begin(), v.end(), y) - v.begin();
-
-int cate = dr - st; // cate = 5  (8, 11, 14, 17, 20)
-  \end{lstlisting}
+int cate = dr - st;                      // 5: 8, 11, 14, 17, 20
+    \end{lstlisting}
+  \end{uncoverenv}
   \begin{itemize}
-    \item Idee frecventă: interogări pe șir sortat în $O(\log n)$ în loc de $O(n)$
+    \item<4-> Idee frecventă: interogări pe un șir sortat în $O(\log n)$ în loc de $O(n)$
   \end{itemize}
 \end{frame}
 
 % ================================================================
-% SECTIUNEA 4
-% ================================================================
-\section{De ce $O(\log n)$?}
+\section{Complexitate}
 
-\begin{frame}{De ce $O(\log n)$?}
+\begin{frame}{Complexitatea căutării binare}
   La fiecare pas, intervalul $[st, dr]$ se \textbf{înjumătățește}:
   \[
     n \;\to\; \frac{n}{2} \;\to\; \frac{n}{4} \;\to\; \cdots \;\to\; 1
   \]
-  Numărul de pași până ajungem la $1$: $\log_2 n$.
-
-  \smallskip
-  \begin{center}
-  \begin{tabular}{lcc}
-    \toprule
-    $n$ & $\log_2 n$ & Pași maximi \\
-    \midrule
-    $10$              & $3.32$   & $4$  \\
-    $1\,000$          & $9.97$   & $10$ \\
-    $10^6$            & $19.93$  & $20$ \\
-    $10^9$            & $29.90$  & $30$ \\
-    $10^{18}$         & $59.79$  & $60$ \\
-    \bottomrule
-  \end{tabular}
-  \end{center}
-
-  \smallskip
-  Chiar și pentru $n = 10^{18}$, avem cel mult $60$ de pași!
+  \begin{intrebare}
+    După câți pași ajunge intervalul la un singur element?
+  \end{intrebare}
+  \uncover<2->{Numărul de pași este $\log_2 n$.}
+  \uncover<3->{
+    \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      $n$ & $\log_2 n$ & Pași maximi \\
+      \midrule
+      $10$              & $3{,}32$   & $4$  \\
+      $1\,000$          & $9{,}97$   & $10$ \\
+      $10^6$            & $19{,}93$  & $20$ \\
+      $10^9$            & $29{,}90$  & $30$ \\
+      $10^{18}$         & $59{,}79$  & $60$ \\
+      \bottomrule
+    \end{tabular}
+    \end{center}}
+  \begin{remarca}<4->{Concluzie}
+    Chiar și pentru $n = 10^{18}$ sunt necesari cel mult $60$ de pași.
+  \end{remarca}
 \end{frame}
 
 % ================================================================
-% SECTIUNILE 5-6: decomentati pentru clasa a 9-a
-% (decomentati si randul din tabelul de Recapitulare)
-% ================================================================
-
 \section{Căutare binară pe rezultat}
 
-\begin{frame}{Căutare binară pe rezultat \textemdash{} exemplu}
-  Cea mai puternică aplicație: nu căutăm o valoare într-un șir, ci \textbf{cel mai bun răspuns posibil}.
-
-  \smallskip
-  \begin{block}{Problemă}
-    Avem $n$ bețe de lungimi $d_1, d_2, \dots, d_n$. Fiecare băț poate fi tăiat în bucăți mai mici de lungimi întregi. Determinați \textbf{lungimea maximă} $L$ pentru care obținem în total \textbf{cel puțin} $A$ bucăți.
+\begin{frame}{Căutare binară pe rezultat \textemdash{} idee}
+  \begin{itemize}
+    \item Căutarea binară clasică caută o \textbf{poziție} într-un tablou sortat
+    \item Căutarea binară \textbf{pe rezultat} caută direct \textbf{valoarea răspunsului}, fără ca tabloul să existe
+  \end{itemize}
+  \begin{intrebare}
+    Ce informații sunt necesare pentru a căuta binar valoarea unui răspuns?
+  \end{intrebare}
+  \begin{block}<2->{Schema în trei pași}
+    \begin{enumerate}
+      \item Se stabilește intervalul $[st, dr]$ în care se află răspunsul
+      \item Se scrie o funcție $\mathrm{check}(x)$: „se poate rezolva problema cu valoarea $x$?”
+      \item Se verifică faptul că $\mathrm{check}$ este \textbf{monotonă}, apoi se caută pragul: cel mai mare $x$ cu $\mathrm{check}(x)$ adevărat (sau cel mai mic, în varianta simetrică)
+    \end{enumerate}
   \end{block}
-
-  \smallskip
-  Restricții: $1 \leq n \leq 10^5$, $1 \leq d_i \leq 10^9$, $1 \leq A \leq 10^9$.
-
-  Exemplu: $d = [7,\ 4,\ 9,\ 5]$, $A = 6$ $\Rightarrow$ răspuns $L = 3$ (obținem $2+1+3+1 = 7 \geq 6$ bucăți).
+  \begin{itemize}
+    \item<3-> Cuvinte-cheie în enunț: „cel mai mic / cel mai mare $x$ astfel încât\ldots”, „minimizează maximul”, „maximizează minimul”
+  \end{itemize}
+  \beginnote{Un număr din $[1, 10^9]$ se ghicește în cel mult $30$ de întrebări „mai mare sau mai mic?”, deoarece $2^{30} > 10^9$}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Căutare binară pe rezultat \textemdash{} soluție naivă}
-  Cea mai simplă idee: încercăm pe rând fiecare lungime posibilă, de la cea mai mare la cea mai mică, și ne oprim la prima care funcționează.
-  \begin{lstlisting}
-long long taieBucati(vector<int>& d, int L) {
-    long long bucati = 0;
-    for (int i = 0; i < d.size(); ++i) {
-        bucati += d[i] / L;
-    }
-    return bucati;
-}
+\begin{frame}{Căutare binară pe rezultat \textemdash{} desfășurare}
+  Se caută cel mai mare $x$ cu $\mathrm{check}(x)$ adevărat; aici $\mathrm{check}(x)$ este adevărat exact pentru $x \le 10$. Intervalul necercetat $[st, dr]$ începe cu $[0, 16]$; celula cu margine albastră este $mid$.
+  \begin{intrebare}
+    Cum se modifică $st$, $dr$ și $ans$ după fiecare test?
+  \end{intrebare}
+  \uncover<2->{Dacă $\mathrm{check}(mid)$ este adevărat, $ans = mid$ și $st = mid + 1$; altfel $dr = mid - 1$.}
+  \smallskip
 
-for (int L = maxim; L >= 1; L--) {
-    if (taieBucati(d, L) >= A) {
-        cout << L;
-        break;
-    }
-}
-  \end{lstlisting}
-  \begin{itemize}
-    \item Complexitate: $O(n \cdot maxim)$, unde $maxim$ este lungimea maximă a unui băț
-    \item Pentru $maxim = 10^9$ și $n = 10^5$: mult prea lent
-  \end{itemize}
+  \centering
+  \begin{tikzpicture}
+    \uncover<3->{\bsrow{0}{0}{16}{8}{$mid=8$: adevărat $\rightarrow$ $ans=8$, $st=9$}}
+    \uncover<4->{\bsrow{1}{9}{16}{12}{$mid=12$: fals $\rightarrow$ $dr=11$}}
+    \uncover<5->{\bsrow{2}{9}{11}{10}{$mid=10$: adevărat $\rightarrow$ $ans=10$, $st=11$}}
+    \uncover<6->{\bsrow{3}{11}{11}{11}{$mid=11$: fals $\rightarrow$ $dr=10$}}
+    \uncover<7->{\bsrow{4}{11}{10}{-1}{$st > dr$: răspuns $ans=10$}}
+  \end{tikzpicture}
+
+  \raggedright
+  \uncover<7->{\textcolor{igGreen}{$\blacksquare$} adevărat (cunoscut) \quad \textcolor{igRed}{$\blacksquare$} fals (cunoscut) \quad $\square$ necunoscut\\
+  Aici sunt $4$ teste pentru $17$ valori; pentru un domeniu de $10^{18}$ valori, circa $60$ de teste.}
+\end{frame}
+
+\begin{frame}{Căutare binară pe rezultat \textemdash{} exemplu}
+  \begin{block}{Problemă}
+    Se dau $n$ bețe de lungimi $d_1, d_2, \dots, d_n$. Din fiecare băț se taie bucăți de aceeași lungime întreagă $L$ (restul rămas se aruncă). Să se determine \textbf{lungimea maximă} $L$ pentru care se obțin în total \textbf{cel puțin} $A$ bucăți.
+  \end{block}
+  Restricții: $1 \leq n \leq 10^5$, $1 \leq d_i \leq 10^9$, $1 \leq A \leq 10^9$.
+
+  Exemplu: $d = [7,\ 4,\ 9,\ 5]$, $A = 6$ $\Rightarrow$ $L = 3$ (se obțin $2+1+3+1 = 7 \geq 6$ bucăți).
+  \begin{intrebare}<2->
+    Cum se poate rezolva problema dacă se încearcă pe rând fiecare lungime posibilă, de la cea mai mare la cea mai mică?
+  \end{intrebare}
+  \uncover<3->{Pentru fiecare $L$ se calculează $\sum_i \lfloor d_i / L \rfloor$ și se oprește la prima valoare a lui $L$ pentru care suma este $\geq A$. Complexitate $O(n \cdot maxim)$, unde $maxim$ este lungimea maximă a unui băț: pentru $maxim = 10^9$ și $n = 10^5$, mult prea lent.}
 \end{frame}
 
 \begin{frame}{Căutare binară pe rezultat \textemdash{} observație}
-  Pe măsură ce $L$ crește, numărul de bucăți obținute de \lstinline|taieBucati(d, L)| \textbf{scade} (sau rămâne la fel).
+  Pe măsură ce $L$ crește, numărul de bucăți obținute \textbf{scade} (sau rămâne la fel).
 
-  Exemplu: $d = [7,\ 4,\ 9,\ 5]$, verificăm $taieBucati(L) \geq A$, $A = 6$
-
-  \smallskip
+  Exemplu: $d = [7,\ 4,\ 9,\ 5]$, $A = 6$
   \begin{center}
   \begin{tabular}{lccccccccc}
     \toprule
     $L$                & 1  & 2  & 3 & 4 & 5 & 6 & 7 & 8 & 9 \\
     \midrule
-    $taieBucati(L)$    & 25 & 11 & 7 & 5 & 3 & 2 & 2 & 1 & 1 \\
-    $\geq A$?          & \checkmark & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
+    $\mathrm{bucati}(L)$ & 25 & 11 & 7 & 5 & 3 & 2 & 2 & 1 & 1 \\
+    $\geq A$?          & \at{2}{\checkmark} & \at{2}{\checkmark} & \at{2}{\checkmark} & \at{2}{$\times$} & \at{2}{$\times$} & \at{2}{$\times$} & \at{2}{$\times$} & \at{2}{$\times$} & \at{2}{$\times$} \\
     \bottomrule
   \end{tabular}
   \end{center}
-
-  \smallskip
-  \begin{block}{Observație}
-    Șirul de valori $taieBucati(L)$ e \textbf{monoton descrescător}: odată ce scade sub $A$, rămâne sub $A$. Îl putem privi ca pe un șir sortat descrescător (la fel ca la $lower\_bound$, vezi secțiunea \emph{Variații}) și \textbf{eliminăm jumătate din candidați} la fiecare iterație.
-  \end{block}
+  \begin{intrebare}<3->
+    Ce proprietate are șirul valorilor $\mathrm{check}(L)$, de la $L = 1$ spre dreapta?
+  \end{intrebare}
+  \begin{remarca}<4->{Monotonie}
+    Odată ce numărul de bucăți scade sub $A$, rămâne sub $A$. Condiția trece o singură dată de la adevărat la fals, deci la fiecare test se poate elimina jumătate din candidați.
+  \end{remarca}
 \end{frame}
 
-\begin{frame}[fragile, shrink]{Căutare binară pe rezultat \textemdash{} soluție optimizată}
+\begin{frame}[fragile]{Căutare binară pe rezultat \textemdash{} implementare}
   \begin{lstlisting}
-long long taieBucati(vector<int>& d, int L) {
-    long long bucati = 0;
-    for (int i = 0; i < d.size(); ++i) {
-        bucati += d[i] / L;
+long long bucati(int d[], int n, int L) {
+    long long cnt = 0;
+    for (int i = 0; i < n; i++) {
+        cnt += d[i] / L;
     }
-    return bucati;
+    return cnt;
 }
 
-int st = 1, dr = maxim, rez = 0;
+int st = 1, dr = maxim, ans = 0;     // maxim = cel mai mare d[i]
 while (st <= dr) {
-    int mij = (st + dr) / 2;
-    if (taieBucati(d, mij) >= A) {
-        rez = mij;     // functioneaza, incercam mai mare
-        st = mij + 1;
+    int mid = (st + dr) / 2;
+    if (bucati(d, n, mid) >= A) {
+        ans = mid;         // functioneaza, incercam mai mare
+        st = mid + 1;
     } else {
-        dr = mij - 1;  // nu functioneaza, incercam mai mic
+        dr = mid - 1;      // nu functioneaza, incercam mai mic
     }
 }
-cout << rez;
+cout << ans;
   \end{lstlisting}
   \begin{itemize}
-    \item Complexitate: $O(n \log(maxim))$ \textemdash{} pentru aceleași date, $\approx 10^5 \cdot 30 = 3 \times 10^6$
+    \item Complexitate: $O(n \log(maxim))$ \textemdash{} pentru aceleași date, $\approx 10^5 \cdot 30 = 3 \cdot 10^6$ operații
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Căutare binară pe rezultat \textemdash{} observație: overflow}
-  \begin{block}{Observație: overflow}
-    La căutarea binară pe rezultat, intervalul $[st, dr]$ poate fi foarte mare (de exemplu $dr = maxim \approx 10^9$), deci $st + dr$ riscă să depășească un \lstinline|int|.
-
-    În astfel de cazuri, ori folosim \lstinline|long long| pentru $st$, $dr$, $mij$, ori schimbăm formula pentru mijloc: \lstinline[keepspaces=true]|mij = st + (dr - st) / 2|.
+\begin{frame}{Overflow și condiția de aplicabilitate}
+  \begin{intrebare}
+    De ce poate apărea overflow la $mid = (st + dr) \ / \ 2$ în căutarea binară pe rezultat?
+  \end{intrebare}
+  \begin{block}<2->{Overflow}
+    Intervalul $[st, dr]$ poate fi foarte mare, iar suma $st + dr$ poate depăși limita tipului \lstinline|int| ($\approx 2{,}1 \cdot 10^9$). Se folosește \lstinline|long long| sau \lstinline[keepspaces=true]|mid = st + (dr - st) / 2|. La căutarea unui element, $[st, dr]$ este mărginit de $n$, deci riscul nu apare de obicei.
   \end{block}
-
-  \smallskip
-  Comparativ, la căutarea binară a unui element, $[st, dr]$ e mărginit de $n$ (indici de tablou), deci acest risc de overflow nu apare de obicei.
-\end{frame}
-
-\begin{frame}{Căutare binară pe rezultat \textemdash{} condiția de aplicabilitate}
-  Căutarea binară pe rezultat funcționează \textbf{doar} când există o structură de tipul:
-
-  \smallskip
-  \begin{center}
-  \begin{tabular}{ccccccccc}
-    $\ldots$ & \checkmark & \checkmark & \checkmark & \textbf{$\times$} & $\times$ & $\times$ & $\times$ & $\ldots$ \\
-  \end{tabular}
-  \end{center}
-
-  \smallskip
-  adică există un \textbf{singur prag} unde condiția $taieBucati(L) \geq A$ trece din adevărat în fals (sau invers) \textemdash{} exact ca în tabelul de la exemplul cu bețele.
-\end{frame}
-
-\begin{frame}{Căutare binară pe rezultat \textemdash{} verificare practică}
-  \begin{block}{Verificare practică}
-    Înainte să aplici căutarea binară pe rezultat: întreabă-te \emph{``pentru \textbf{orice} $L$ care merge, merge și $L-1$?''}
-    Dacă da pentru toate valorile, funcția e monotonă și poți aplica căutarea binară.
-  \end{block}
-
-  \smallskip
-  \begin{block}{Exemple care \textbf{nu} respectă condiția}
+  \begin{block}<3->{Condiția de aplicabilitate}
+    Trebuie să existe un \textbf{singur prag} în care $\mathrm{check}$ trece din adevărat în fals (sau invers). Verificare practică: dacă $L$ este valid, este valid și $L - 1$?
     \begin{itemize}
-      \item Șir nesortat $\Rightarrow$ nu poți aplica căutarea binară pe element
-      \item Funcție de tip \checkmark $\times$ \checkmark $\times$ \checkmark $\Rightarrow$ nu e monotonă
+      \item $\checkmark\ \checkmark\ \checkmark\ \times\ \times\ \times$ \textemdash{} monotonă, se poate aplica
+      \item $\checkmark\ \times\ \checkmark\ \times\ \checkmark$ \textemdash{} nu este monotonă, nu se poate aplica
     \end{itemize}
   \end{block}
 \end{frame}
@@ -493,85 +484,78 @@ cout << rez;
     \toprule
     Variantă & Timp & Spațiu \\
     \midrule
-    Căutare secvențială              & $O(n)$      & $O(1)$ \\
-    Căutare binară (element)         & $O(\log n)$ & $O(1)$ \\
-    STL \texttt{lower/upper\_bound}  & $O(\log n)$ & $O(1)$ \\
-    Căutare binară pe rezultat     & $O(\log n \cdot f(n))$ & depinde \\ 
+    Căutare secvențială             & $O(n)$      & $O(1)$ \\
+    Căutare binară (element)        & $O(\log n)$ & $O(1)$ \\
+    STL \texttt{lower/upper\_bound} & $O(\log n)$ & $O(1)$ \\
+    Căutare binară pe rezultat      & $O(\log V \cdot \mathrm{cost}(\mathrm{check}))$ & depinde \\
     \bottomrule
   \end{tabular}
   \end{center}
-
-  \smallskip
   \begin{itemize}
-    \item Șirul trebuie sortat înainte de căutare binară
-    \item Pentru intervale $[st, dr]$ foarte mari, folosim \lstinline|long long| sau formula sigură \lstinline[keepspaces=true]|mij = st + (dr - st) / 2|
-    \item \texttt{lower\_bound} $\rightarrow$ prima poz. cu $\geq x$; \texttt{upper\_bound} $\rightarrow$ prima poz. cu $> x$
+    \item Șirul trebuie sortat înainte de căutarea binară a unui element
+    \item Pentru intervale $[st, dr]$ foarte mari se folosește \lstinline|long long| sau \lstinline[keepspaces=true]|mid = st + (dr - st) / 2|
+    \item \texttt{lower\_bound} $\rightarrow$ prima poziție cu $\geq x$; \texttt{upper\_bound} $\rightarrow$ prima poziție cu $> x$
+    \item La căutarea binară pe rezultat, $\mathrm{check}$ trebuie să fie monotonă; complexitatea este $O(\log V \cdot \mathrm{cost}(\mathrm{check}))$, unde $V = dr - st$
   \end{itemize}
 \end{frame}
 
-% ================================================================
-\section{Resurse}
-
-\begin{frame}{Resurse}
-  \begin{block}{Română}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://www.pbinfo.ro/articole/3633/cautarea-binara}{\textbf{pbinfo.ro}} \textemdash{} Căutarea binară (RO)
-      \item \href{https://infoas.ro/lectie/122/cautare-binara-in-c}{\textbf{infoas.ro}} \textemdash{} Căutare binară în C++ (RO)
-    \end{itemize}
+\begin{frame}{Probleme de antrenament}
+  \begin{block}{Ușoare}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/3963}{\textbf{Classic Binary Search Practice}}
+            \textcolor{gray}{(AlgoCode \#3963)}
+      \item \href{https://code.algolymp.com/problems/4202}{\textbf{First Position Not Less Than Query}}
+            \textcolor{gray}{(AlgoCode \#4202)}
+    \end{enumerate}
   \end{block}
-  \vspace{-6pt}
-  \begin{block}{Engleză}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://cp-algorithms.com/num_methods/binary_search.html}{\textbf{cp-algorithms.com}} \textemdash{} Binary Search (EN, detaliat, include și căutarea binară pe numere reale)
-      \item \href{https://usaco.guide/silver/binary-search}{\textbf{usaco.guide}} \textemdash{} Binary Search on Monotonic Functions (EN)
-      % \item \href{https://www.geeksforgeeks.org/dsa/binary-search/}{\textbf{geeksforgeeks.org}} \textemdash{} Binary Search (EN)
-      % \item \href{https://www.w3schools.com/dsa/dsa_algo_binarysearch.php}{\textbf{w3schools.com}} \textemdash{} Binary Search cu simulare (EN)
-      % \item \href{https://en.wikipedia.org/wiki/Binary_search}{\textbf{wikipedia.org}} \textemdash{} Binary search, istoric (EN)
-    \end{itemize}
+  \begin{block}{Medii}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1009}{\textbf{Maximum Bamboo Stake Length}}
+            \textcolor{gray}{(AlgoCode \#1009)}
+      \item \href{https://code.algolymp.com/problems/3962}{\textbf{Snack Route}}
+            \textcolor{gray}{(AlgoCode \#3962)}
+    \end{enumerate}
   \end{block}
-  \vspace{-6pt}
-  \begin{block}{Documentație C++}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://en.cppreference.com/w/cpp/algorithm/lower_bound.html}{\textbf{cppreference.com}} \textemdash{} \texttt{lower\_bound} / \texttt{upper\_bound}
-    \end{itemize}
+  \begin{block}{Grea}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1008}{\textbf{Nth Number Coprime with 2022}}
+            \textcolor{gray}{(AlgoCode \#1008)}
+    \end{enumerate}
   \end{block}
-  \vspace{-6pt}
-  \begin{block}{Fun fact}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://cp-algorithms.com/num_methods/ternary_search.html}{\textbf{cp-algorithms.com}} \textemdash{} Ternary Search (EN) \textemdash{} căutare \textbf{ternară}, folosită pentru funcții unimodale (ex. $ax^2+bx+c$)
-    \end{itemize}
+  \begin{block}{Olimpiadă}
+    \begin{enumerate}
+      \item \href{https://code.algolymp.com/problems/1916}{\textbf{Buldo}}
+            \textcolor{gray}{(AlgoCode \#1916 · OJI 2020 IX)}
+      \item \href{https://code.algolymp.com/problems/2984}{\textbf{Macarie}}
+            \textcolor{gray}{(AlgoCode \#2984 · OJI 2024 IX)}
+    \end{enumerate}
   \end{block}
 \end{frame}
 
-% ================================================================
-\section{Probleme de antrenament}
-
-\begin{frame}{Probleme de antrenament}
-  \begin{block}{Ușoare}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://code.algolymp.com/problems/3963}{\textbf{Classic Binary Search \#3963}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-      \item \href{https://code.algolymp.com/problems/4202}{\textbf{First Position Not Less Than Query \#4202}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
+\begin{frame}{Resurse}
+  \begin{block}{Română}
+    \begin{enumerate}
+      \item \href{https://www.pbinfo.ro/articole/3633/cautarea-binara}{\textbf{pbinfo.ro}}
+            \textemdash{} Căutarea binară (RO)
+      \item \href{https://infoas.ro/lectie/122/cautare-binara-in-c}{\textbf{infoas.ro}}
+            \textemdash{} Căutare binară în C++ (RO)
+    \end{enumerate}
   \end{block}
-  \vspace{-4pt}
-  \begin{block}{Medii}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://code.algolymp.com/problems/1009}{\textbf{Search Task \#1009}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-      \item \href{https://code.algolymp.com/problems/3962}{\textbf{Snack Route \#3962}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
+  \begin{block}{Engleză}
+    \begin{enumerate}
+      \item \href{https://cp-algorithms.com/num_methods/binary_search.html}{\textbf{cp-algorithms.com}}
+            \textemdash{} Binary Search (EN, detaliat, include și căutarea binară pe numere reale)
+      \item \href{https://usaco.guide/silver/binary-search}{\textbf{usaco.guide}}
+            \textemdash{} Binary Search on Monotonic Functions (EN)
+      \item \href{https://cp-algorithms.com/num_methods/ternary_search.html}{\textbf{cp-algorithms.com}}
+            \textemdash{} Ternary Search (EN), căutare \textbf{ternară} pentru funcții unimodale
+    \end{enumerate}
   \end{block}
-  \vspace{-4pt}
-  \begin{block}{Grea}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://code.algolymp.com/problems/1008}{\textbf{Search Task \#1008}} {\footnotesize\textcolor{gray}{(AlgoCode)}}
-    \end{itemize}
-  \end{block}
-  \vspace{-4pt}
-  \begin{block}{Olimpiadă}
-    \begin{itemize}\footnotesize\itemsep0pt
-      \item \href{https://code.algolymp.com/problems/1916}{\textbf{Buldo}} {\footnotesize\textcolor{gray}{(OJI 2020, clasa IX)}}
-      \item \href{https://code.algolymp.com/problems/2984}{\textbf{Macarie}} {\footnotesize\textcolor{gray}{(OJI 2024, clasa IX)}}
-    \end{itemize}
+  \begin{block}{Documentație C++}
+    \begin{enumerate}
+      \item \href{https://en.cppreference.com/w/cpp/algorithm/lower_bound.html}{\textbf{cppreference.com}}
+            \textemdash{} \texttt{lower\_bound} / \texttt{upper\_bound}
+    \end{enumerate}
   \end{block}
 \end{frame}
 
